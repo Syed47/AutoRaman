@@ -1,0 +1,42 @@
+// laser offset
+
+//record image with laser port open 
+mmc.setProperty("TransmittedLamp", "Label", "Off");
+mmc.setSerialPortCommand("COM13", "CURRENT=40", "\r\n");
+mmc.setCameraDevice("AmScope");
+exposure = mmc.getExposure();
+mmc.setExposure(25);
+gui.sleep(5000);
+width = (int)mmc.getImageWidth();
+height = (int)mmc.getImageHeight();
+mmc.snapImage();
+mmc.getImage();
+gui.snapSingleImage();
+gui.sleep(500);
+mmc.snapImage();
+mmc.getImage();
+IJ.run("Close");
+gui.snapSingleImage();
+gui.sleep(500);
+IJ.run("Find Maxima...", "noise=500 output=[Point Selection]");
+IJ.run("Measure");
+
+TextPanel tp = IJ.getTextPanel();
+ResultsTable rt = tp.getResultsTable();
+num = rt.getCounter();
+
+//find centre of laser spot
+
+int[] laserSpot = new int[2];
+laserSpot[0] = (int)rt.getValue("X",0);
+laserSpot[1] = (int)rt.getValue("Y",0);
+
+//return offset between laser spot and centre of image
+int[] laserOffset = new int[2];
+laserOffset[0] = laserSpot[0] - width/2;
+laserOffset[1] = laserSpot[1] - height/2;
+
+IJ.run("Close"); 
+IJ.run("Clear Results");
+mmc.setProperty("TransmittedLamp", "Label", "On");
+mmc.setExposure(exposure);

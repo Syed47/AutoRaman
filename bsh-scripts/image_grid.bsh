@@ -1,0 +1,93 @@
+/////////////////////////////////////////////////////////
+//Record an n X m grid of images in white spot plane
+import ij.*;
+import ij.IJ;
+import ij.plugin.frame.RoiManager;
+import ij.measure.ResultsTable;
+import ij.text.*;
+import ij.gui.*;
+import ij.process.*;
+import ij.ImagePlus;
+import ij.io.FileSaver;
+import mmcorej.CharVector;
+import mmcorej.DeviceType;
+
+width = mmc.getImageWidth();
+height = mmc.getImageHeight();
+byteDepth = mmc.getBytesPerPixel();
+cameraName = mmc.getCameraDevice();
+mmc.setProperty(cameraName, "Binning", "1x1");
+mmc.setProperty(cameraName, "PixelType", "GREY8");
+mmc.setProperty(cameraName, "ExposureAuto", "0");
+mmc.setExposure(25);
+xystage = mmc.getXYStageDevice();
+pos.x = mmc.getXPosition(xystage);
+pos.y = mmc.getYPosition(xystage);
+
+Xorigin = pos.x;	//
+Yorigin = pos.y;	// Use these to return to the original position if needed
+
+cc=0;
+//incX = 320;	//Number of steps in X and Y the stage moves between images in image_grid.bsh. For AmScope camera (2048X1536) with 20X 
+//incY = 240;
+pos.x = pos.x - incX*(0.5*n - 0.5);
+startx = pos.x;
+pos.y = pos.y - incY*(0.5*m - 0.5);
+starty = pos.y;
+gui.setXYStagePosition(pos.x,pos.y);
+mmc.sleep(1000);
+for( int a=0; a<m; a+=1 )
+{
+	for( int b=0; b<n; b+=1 )
+	{					
+		
+		pos.x= startx + incX*b;
+		pos.y = starty + incY*a;
+		
+		gui.setXYStagePosition(pos.x,pos.y);
+		mmc.sleep(50);
+		mmc.snapImage();		
+		mmc.snapImage();
+		mmc.sleep(50);
+		img = mmc.getImage();			
+		
+		if (byteDepth == 1)
+		{
+			ip = new ByteProcessor((int)width, (int)height);
+   		ip.setPixels(img);
+		}else if (byteDepth==16) {
+   		ip = new ShortProcessor((int)width, (int)height);
+   		ip.setPixels(img);
+		}else {
+   		console.message("Unknown byte depth.");
+   		return;
+		}		
+		prePath = directory+ "Stitches\\imageXY-" + (cc) + ".tif";
+		ImagePlus imp = new ImagePlus(prePath, ip);
+		FileSaver fs = new FileSaver(imp);
+		fs.saveAsTiff(prePath);	
+		cc += 1;
+ 	}	
+   gui.setXYStagePosition(pos.x,pos.y);   
+}
+mmc.snapImage();
+mmc.snapImage();
+mmc.sleep(50);
+img = mmc.getImage();			
+		
+		if (byteDepth == 1)
+		{
+			ip = new ByteProcessor((int)width, (int)height);
+   		ip.setPixels(img);
+		}else if (byteDepth==16) {
+   		ip = new ShortProcessor((int)width, (int)height);
+   		ip.setPixels(img);
+		}else {
+   		console.message("Unknown byte depth.");
+   		return;
+		}		
+		prePath = directory + "Stitches\\imageXY-" + (cc) + ".tif";
+		ImagePlus imp = new ImagePlus(prePath, ip);
+		FileSaver fs = new FileSaver(imp);
+		fs.saveAsTiff(prePath);	
+gui.setXYStagePosition(Xorigin,Yorigin);   

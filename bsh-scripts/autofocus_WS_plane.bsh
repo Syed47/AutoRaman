@@ -1,0 +1,101 @@
+//Autofocus routine
+import ij.*;
+import ij.IJ;
+import ij.plugin.frame.RoiManager;
+import ij.measure.ResultsTable;
+import ij.text.*;
+import ij.gui.*;
+import ij.process.*;
+import ij.ImagePlus;
+import ij.io.FileSaver;
+//Record images along z axis
+mmc.setProperty("TransmittedLamp", "Label", "On");
+mmc.setCameraDevice("AmScope");
+cameraName = mmc.getCameraDevice();
+mmc.setProperty(cameraName, "Binning", "1x1");
+mmc.setProperty(cameraName, "PixelType", "GREY8");
+mmc.setProperty(cameraName, "ExposureAuto", "0");
+mmc.setSerialPortCommand("COM13", "CURRENT=0", "\r\n");
+width = mmc.getImageWidth();
+height = mmc.getImageHeight();
+byteDepth = mmc.getBytesPerPixel();
+
+xystage = mmc.getXYStageDevice();
+zstage = mmc.getFocusDevice();
+pos.z = mmc.getPosition(zstage);
+nz=60; 		//Define number of images
+step=5;
+pos.z -= nz*0.5*step;
+for( int a=0; a<nz+2; a+=1 ) 
+{
+	mmc.snapImage();
+	mmc.snapImage();
+	mmc.sleep(50);
+
+	img = mmc.getImage();
+	if (byteDepth == 1) 
+	{
+		ip = new ByteProcessor((int)width, (int)height);
+		ip.setPixels(img);
+	} else if (byteDepth == 2) 
+	{
+		ip = new ShortProcessor((int)width, (int)height);
+		ip.setPixels(img);
+	} else 
+	{
+		console.message("Unknown byte depth.");
+		return;
+	}
+
+	if(a == 0|| a == 1)
+	{
+	prePath = directory + "Autofocus\\image_" + a + ".tif"; //Define folder
+	ImagePlus imp = new ImagePlus(prePath, ip);
+	FileSaver fs = new FileSaver(imp);
+	fs.saveAsTiff(prePath);
+	}	else
+	{	
+	prePath = directory + "Autofocus\\image_" + (a-2) + ".tif"; //Define folder
+	ImagePlus imp = new ImagePlus(prePath, ip);
+	FileSaver fs = new FileSaver(imp);
+	fs.saveAsTiff(prePath);
+	}
+	pos.z += step;
+	mmc.setPosition(zstage, pos.z);
+	mmc.sleep(50);
+}
+pos.z -= nz*step;
+mmc.setPosition(zstage, pos.z);
+///////////////////////////////////////////////////
+//Find minimum variance corresponds to in-focus plane
+
+IJ.run("Image Sequence...", "open=[" + directory + "Autofocus\\image_0.tif] starting=0 file=image_ sort");
+IJ.run("Clear Results"); 
+IJ.run("Set Measurements...", "  mean standard redirect=None decimal=5"); 
+
+TextPanel tp = IJ.getTextPanel();
+ResultsTable rt = tp.getResultsTable();
+
+max = -1; 
+maxIndex = -1; 
+for (int i=0; i<nz; i++)
+{ 
+	IJ.setSlice(i+1); 
+	IJ.run("Measure"); 
+	mean = rt.getValue("Mean", i); 
+	stddev = rt.getValue("StdDev", i); 
+	normVar = stddev*stddev/mean; 
+	if (normVar > max)
+	{ 
+		max = normVar; 
+		maxIndex = i; 
+   } 
+} 
+IJ.run("Clear Results"); 
+IJ.selectWindow("Autofocus");
+IJ.run("Close"); 
+pos.z += step*(maxIndex) - 10;
+mmc.setPosition(zstage, pos.z);
+mmc.sleep(500);
+
+/////////////////////////////////////////////////////////

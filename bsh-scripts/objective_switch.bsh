@@ -1,0 +1,87 @@
+Interpreter i = new Interpreter();	// Construct an interpreter
+i.set("mmc",mmc);
+i.set("gui",gui);
+i.set("directory",directory);
+objLow = "20X";
+objHigh = "40X";
+width = mmc.getImageWidth();
+height = mmc.getImageHeight();
+
+//print(objRatio);
+mmc.setExposure(25);
+mmc.setProperty("Objective", "Label", objLow);
+i.source(directory + "autofocus_WS_plane.bsh");
+//take 20X image
+obj = mmc.getProperty("Objective", "Label");
+obj = obj.substring(0, 2);
+objNum = Integer.parseInt(obj);
+gui.snapSingleImage();
+gui.sleep(500);
+gui.snapSingleImage();
+gui.sleep(500);
+gui.snapSingleImage();
+gui.sleep(500);
+gui.snapSingleImage();
+gui.sleep(500);
+IJ.saveAs("Tiff", "G:\\Kevin\\Raman automation scheme\\Objective_switch\\image_1.tif");
+IJ.run("Close");
+//take 40X image
+mmc.setExposure(125);
+mmc.setProperty("Objective", "Label", objHigh);
+i.source(directory + "autofocus_WS_plane.bsh");
+pos.z = mmc.getPosition(zstage);
+pos.z -= 10;
+mmc.setPosition(zstage, pos.z);
+mmc.sleep(50);
+objHighSub = objHigh.substring(0, 2);
+objHighNum = Integer.parseInt(objHighSub);
+objRatio = (double)objNum/objHighNum;
+gui.snapSingleImage();
+gui.sleep(500);
+gui.snapSingleImage();
+gui.sleep(500);
+gui.snapSingleImage();
+gui.sleep(500);
+gui.snapSingleImage();
+gui.sleep(500);
+
+//scale down 40X
+IJ.run("Scale...", "x=0.5 y=0.5 width=1024 height=768 interpolation=Bilinear average create title=image_2");
+gui.sleep(500);
+IJ.saveAs("Tiff", "G:\\Kevin\\Raman automation scheme\\Objective_switch\\image_2.tif");
+gui.sleep(500);
+IJ.run("Close");
+IJ.run("Close");
+//stitch together images
+input = directory + "Objective_switch";
+genericFilename = "image_{i}.tif";
+stitchImage = "stitchedImage";
+IJ.run("Clear Results");
+IJ.run("Grid/Collection stitching", "type=[Unknown position] order=[All files in directory] directory=[G:\\Kevin\\Raman automation scheme\\Objective_switch] output_textfile_name=_ambient_stitched.txt fusion_method=[Linear Blending] regression_threshold=0.50 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 subpixel_accuracy computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]");
+gui.sleep(500);
+//IJ.saveAs("Tiff", input+"\\stitchedImage.tif");
+IJ.run("Close");
+//open .txt file
+FileReader fr = new FileReader(directory + "Objective_switch\\_ambient_stitched.registered.txt");
+BufferedReader textReader = new BufferedReader(fr);
+String textData;
+double[][] coords = new double[2][2];
+
+int c = 0;
+for(int i = 0; i<6;i++)
+{
+	textData = textReader.readLine();
+	if(textData.indexOf("(") != -1)
+	{
+	textData1 = textData.substring(textData.indexOf("(")+1, textData.indexOf(","));
+	textData2 = textData.substring(textData.indexOf(",")+1, textData.indexOf(")"));
+	coords[c][0] = Double.parseDouble(textData1);
+	coords[c][1] = Double.parseDouble(textData2);
+	c++;
+	}
+}
+//get centre coords for both images
+double[] objShift = new double[2];
+objShift[0] = width/4 - coords[1][0] ;
+objShift[1] = height/4 - coords[1][1];  
+print(objShift);

@@ -1,0 +1,76 @@
+//Record spectra
+import bsh.Interpreter;
+//Initialise camera and microscope
+mmc.setCameraDevice("Andor");
+cameraName = mmc.getCameraDevice();
+width = mmc.getImageWidth();
+height = mmc.getImageHeight();
+byteDepth = mmc.getBytesPerPixel();
+mmc.setProperty(cameraName, "ReadMode", "FVB");
+mmc.setExposure(10000);
+xystage = mmc.getXYStageDevice();
+zstage = mmc.getFocusDevice();
+pos.x = mmc.getXPosition(xystage);
+pos.y = mmc.getYPosition(xystage);
+pos.z = mmc.getPosition(zstage);
+Interpreter i = new Interpreter();	// Construct an interpreter
+i.set("mmc",mmc);
+i.set("gui",gui);
+i.set("laserSpot",laserSpot);
+i.set("theta",theta);
+i.set("scaler",scaler);
+i.set("offset",offset);
+i.set("objRatio",objRatio);
+i.set("directory",directory);
+//Declare variables
+n_cells = cellStage.length;
+double[][] cellStageRel = new double[n_cells-1][2];
+int[][][] spectra = new int[n_cells][width][2];
+//Move to cell position and record spectrum
+pos.x = cellStage[0][0];
+pos.y = cellStage[0][1];
+mmc.setXYPosition(pos.x,pos.y);	//X & Y on each cell determined by cell position list + laser offset
+i.source(directory + "autofocus_WS_plane.bsh");	
+WSPlane = mmc.getPosition(zstage);
+i.source(directory + "autofocus_image_focus_plane.bsh");//Z determined by tilt relative to previous cell
+IFPlane = mmc.getPosition(zstage);	
+
+d = 0; // debug counter
+mmc.setCameraDevice("Andor");
+for(int b = 0; b<n_cells; b++)
+{
+	print(d);
+	mmc.setProperty("TransmittedLamp", "Label", "Off"); 
+	mmc.setSerialPortCommand("COM13", "CURRENT=100", "\r\n"); 
+	gui.sleep(2000);
+
+	mmc.snapImage();
+	image = mmc.getImage();
+	for (int k=0;k<width;k++)
+	{
+		spectra[b][k][0] = (int)image[k];
+	}
+	if(b < n_cells-1)
+	{
+		pos.x = cellStage[b][0];
+		pos.y = cellStage[b][1];
+		mmc.setXYPosition(pos.x,pos.y);
+		gui.sleep(50);		
+	}
+}
+mmc.setSerialPortCommand("COM13", "CURRENT=0", "\r\n"); 
+mmc.setCameraDevice("AmScope");
+
+FileWriter f = new FileWriter(directory + "\\Results\\"+ time +"spectra.txt",true);
+PrintWriter p = new PrintWriter(f);
+for (k=0;k<n_cells;k++)
+{
+	for (j=0;j<width;j++)
+	{
+		p.print(spectra[k][j][0] + ",");
+	}
+	p.println("\n");
+}
+f.close();
+p.close();
+mmc.setXYPosition(pos.x,pos.y);

@@ -1,0 +1,86 @@
+//Converts pixel coordinates of cell from stitched image to stage position
+
+//int[][] NN_list_abs = {{1041,2009},{86,1984},{1412,1982},{1003,1979},{2030,1971},
+//{1273,1960},{1477,1954},{2356,1918},{2070,1949},{2080,1947},{2028,1937},
+//{1522,1937},{2305,1929},{946,1912},{213,1894},{505,1853},{2182,1830},{582,1821},
+//{530,1811},{2192,1802},{538,1790},{170,1787},{2090,1784},{2220,1780},{214,1775}};
+xystage = mmc.getXYStageDevice();
+//n=2;
+//m=2;
+//incX = 400;
+//Import pixel shift .txt from image stitching routine
+
+FileReader fr = new FileReader(directory + "Stitches\\_ambient_stitched.registered.txt");
+BufferedReader textReader = new BufferedReader(fr);
+String textData;
+double[][] coords = new double[n*m][2];
+numLines = n*m+4;
+int c = 0;
+for(int i = 0; i<numLines;i++)
+{
+	textData = textReader.readLine();
+	if(textData.indexOf("(") != -1)
+	{
+	textData1 = textData.substring(textData.indexOf("(")+1, textData.indexOf(","));
+	textData2 = textData.substring(textData.indexOf(",")+1, textData.indexOf(")"));
+	coords[c][0] = Double.parseDouble(textData1);
+	coords[c][1] = Double.parseDouble(textData2);
+	c++;
+	}
+}
+fr.close();
+textReader.close();
+//Get central coordinates from both image and stage
+
+double[] ctrImage = new double[2];
+IJ.open(directory + "Stitches\\stitchedImage.tif");
+imp = IJ.getImage();
+stats = imp.getStatistics();
+ip = imp.getProcessor();
+ctrImage[0] = 0.5*ip.getWidth();
+ctrImage[1] = 0.5*ip.getHeight();
+IJ.run("Close");
+
+double[] ctrStage = new double[2];
+ctrStage[0] = mmc.getXPosition(xystage);
+ctrStage[1] = mmc.getYPosition(xystage);
+//Calculate rotation and scaling vector
+
+theta = Math.atan(coords[n-1][1]/coords[n-1][0]);		//Tangent of the angle between the camera and the stage
+SinO = Math.sin(theta);
+CosO = Math.cos(theta);
+scaler = (n-1)*incX/Math.sqrt(Math.pow(coords[n-1][0],2) + Math.pow(coords[n-1][1],2));	//Ratio of one stage step to one pixel displacement
+
+double[] offset = new double[2];//Offset for 0,0 coord of image to centre of image
+offset[0] = -(scaler*ctrImage[0]*CosO + scaler*ctrImage[1]*SinO);
+offset[1] = -(-scaler*ctrImage[0]*SinO + scaler*ctrImage[1]*CosO);
+
+double[] laserOffsetStage = new double[2];//Offset for distance between centre of image to laser spot position
+laserOffsetStage[0] = objRatio*(scaler*laserOffset[0]*CosO + scaler*laserOffset[1]*SinO);
+laserOffsetStage[1] = objRatio*(-scaler*laserOffset[0]*SinO + scaler*laserOffset[1]*CosO);
+n_cells = NN_list_abs.length;
+
+double[] objShiftStage = new double[2];//Offset introduced by switching objectives
+objShiftStage[0] = scaler*objShift[0]*CosO + scaler*objShift[1]*SinO;
+objShiftStage[1] = -scaler*objShift[0]*SinO + scaler*objShift[1]*CosO;
+
+//Apply tranform matrix to cell coordinates
+double[][] cellStage = new double[n_cells][2];
+for(int i = 0; i<n_cells;i++)
+{
+	cellStage[i][0] = scaler*NN_list_abs[i][0]*CosO + scaler*NN_list_abs[i][1]*SinO
+	+ offset[0] - laserOffsetStage[0] + ctrStage[0] + objShiftStage[0];
+	cellStage[i][1] = -(-scaler*NN_list_abs[i][0]*SinO + scaler*NN_list_abs[i][1]*CosO)
+	- offset[1] + laserOffsetStage[1] + ctrStage[1] - objShiftStage[1];
+}
+
+FileWriter f = new FileWriter(directory + "\\Results\\cell locations.txt",false);
+PrintWriter p = new PrintWriter(f);
+for (k=0;k<n_cells;k++)
+{
+
+	p.print(cellStage[k][0] + "," + cellStage[k][1]);
+	p.println("\n");
+}
+f.close();
+p.close();

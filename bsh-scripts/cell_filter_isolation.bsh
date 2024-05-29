@@ -1,0 +1,70 @@
+//Filter criteria for best cells to probe (most isolated)
+import ij.*;
+import ij.IJ;
+import ij.plugin.frame.RoiManager;
+import ij.measure.ResultsTable;
+import ij.text.*;
+import ij.gui.*;
+import ij.process.*;
+import ij.ImagePlus;
+import ij.io.FileSaver;
+import mmcorej.CharVector;
+
+
+//Declare variables
+//int[][] cellXY = {{1041,2009},{86,1984},{1412,1982},{1003,1979},{2030,1971},
+//{1273,1960},{1477,1954},{2356,1918},{2070,1949},{2080,1947},{2028,1937},
+//{1522,1937},{2305,1929},{946,1912},{213,1894},{505,1853},{2182,1830},{582,1821},
+//{530,1811},{2192,1802},{538,1790},{170,1787},{2090,1784},{2220,1780},{214,1775}};
+//n_filtered = 19;
+
+n_cells = cellXY.length;
+if(n_cells < n_filtered)
+{
+	n_filtered = n_cells;
+}
+double[] minDistance = new double[n_cells];
+int[][]cellPos = new int[n_cells][2];
+for(int i=0;i<n_cells;i++)
+{
+	cellPos[i][0] = (int)cellXY[i][0];
+	cellPos[i][1] = (int)cellXY[i][1];
+	minDistance[i] = 999999999;
+}
+//for each cell, find nearest cell to it
+for(int i=0;i<n_cells;i++)
+{
+	double distance = 999999999;
+	for(int j=0;j<n_cells;j++)		//Find nearest cell to testCell
+	{
+		distance = Math.sqrt(Math.pow(cellPos[i][0] - cellPos[j][0],2)+Math.pow(cellPos[i][1] - cellPos[j][1],2));
+		
+		if(distance < minDistance[i] && i != j)
+		{
+			minDistance[i] = distance;
+		}
+	}	
+}
+
+//Filter out most isolated cells
+double[] minDistanceSorted = new double[n_cells];;
+for(int a=0;a<n_cells;a++)
+{
+	minDistanceSorted[a] = minDistance[a];
+}
+Arrays.sort(minDistanceSorted);
+double threshold = minDistanceSorted[n_cells - n_filtered];
+
+int[][] cellFiltered = new int[n_filtered][2];
+int q = 0;
+
+for( int i = 0; i<n_cells; i++)
+{
+	if(minDistance[i] >= threshold && q<n_filtered)
+	{
+		cellFiltered[q][0] = cellPos[i][0];
+		cellFiltered[q][1] = cellPos[i][1];
+		q++;		
+	}	
+}
+//return list of X most isolated cells

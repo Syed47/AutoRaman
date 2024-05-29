@@ -1,0 +1,57 @@
+//Define NN list of cell positions
+import ij.*;
+import ij.IJ;
+import ij.plugin.frame.RoiManager;
+import ij.measure.ResultsTable;
+import ij.text.*;
+import ij.gui.*;
+import ij.process.*;
+import ij.ImagePlus;
+import ij.io.FileSaver;
+import mmcorej.CharVector;
+
+//Run Nearest Neighbour algorithm on cell positions
+
+//Declare variables
+int n_cells = cellPos.length;
+boolean[] isVisited = new boolean[n_cells];		//Has the cell already been added to the NN list?
+int[][] NN_list_abs = new int[n_cells][2];		//List of cell positions in NN order
+
+//Set first cell in NN list
+int testCellX= cellPos[0][0];
+int testCellY = cellPos[0][1];
+NN_list_abs[0] = cellPos[0];
+isVisited[0] = true;
+
+for( int i=1; i<n_cells; i+=1 )
+{
+	double minDistance = 999999999;
+	double distance = 999999999;
+	int minIndex = -1;
+	for( int j=0; j<n_cells; j+=1 )		//Find nearest cell to testCell
+	{
+		distance = Math.sqrt(Math.pow(testCellX - cellPos[j][0],2) + Math.pow(testCellY - cellPos[j][1],2));
+		if(distance < minDistance && isVisited[j] == false)
+		{
+			minDistance = distance;
+			minIndex = j;
+		}
+	}	
+	NN_list_abs[i][0] = cellPos[minIndex][0];//Add nearest cell to NN list
+	NN_list_abs[i][1] = cellPos[minIndex][1];
+	isVisited[minIndex] = true;	//Declare cell visited
+	testCellX = cellPos[minIndex][0];
+	testCellY = cellPos[minIndex][1];
+}
+
+//return two lists, absolute cell positions in NN order, and relative positions from previous cell (for driving stage)
+FileWriter f = new FileWriter(directory + "\\Results\\cell_Positions.txt",false);
+PrintWriter p = new PrintWriter(f);
+for (k=0;k<n_cells;k++)
+{
+
+	p.print(NN_list_abs[k][0] + "," + NN_list_abs[k][1]);
+	p.println("\n");
+}
+f.close();
+p.close();

@@ -1,0 +1,70 @@
+//Autofocus on distant cells, use relative in-focus planes to establish tilt plane
+import ij.*;
+import ij.IJ;
+import ij.plugin.frame.RoiManager;
+import ij.measure.ResultsTable;
+import ij.text.*;
+import ij.gui.*;
+import ij.process.*;
+import ij.ImagePlus;
+import ij.io.FileSaver;
+import mmcorej.CharVector;
+import bsh.Interpreter;
+
+Interpreter inter = new Interpreter();
+inter.set("mmc",mmc);
+inter.set("gui",gui);
+inter.set("directory",directory);
+double[][] edgeCell = new double[3][3];
+int n_cells = cellStage.length;
+//Import list of cell positions
+//Find 3 cells at the edges of the field of view
+//Find two cells that are furthest apart
+double maxDistance = 0;
+for( int i=0; i<n_cells; i+=1 )
+{
+	for( int j=0; j<n_cells; j+=1 )		
+	{
+		distance = Math.sqrt(Math.pow(cellStage[i][0] - cellStage[j][0],2)+Math.pow(cellStage[i][1] - cellStage[j][1],2));
+		if(distance > maxDistance)
+		{
+			maxDistance = distance;
+			edgeCell[0][0] = cellStage[i][0];
+			edgeCell[0][1] = cellStage[i][1];
+			edgeCell[1][0] = cellStage[j][0];
+			edgeCell[1][1] = cellStage[j][1];
+		}
+	}
+}
+//Find the cell whose sum of distance from the other two cells is greatest
+double maxSumDistance = 0;
+for( int i=0; i<n_cells; i+=1 )
+{
+	double sumDistance = Math.sqrt(Math.pow(cellStage[i][0] - edgeCell[0][0],2)+Math.pow(cellStage[i][1] - edgeCell[0][1],2))+	
+								Math.sqrt(Math.pow(cellStage[i][0] - edgeCell[1][0],2)+Math.pow(cellStage[i][1] - edgeCell[1][1],2));
+	
+	if(sumDistance > maxSumDistance)
+		{
+			maxSumDistance = sumDistance;
+			edgeCell[2][0] = cellStage[i][0];
+			edgeCell[2][1] = cellStage[i][1];
+		}
+}
+//Move to each cell and perform autofocus routine
+for( int i = 0; i<3; i++)
+{	
+	gui.setXYStagePosition(edgeCell[i][0],edgeCell[i][1]);
+	inter.source(directory + "autofocus_image_focus_plane.bsh");
+	edgeCell[i][2] = mmc.getPosition(zstage);
+}
+//Use X,Y and in-focus Z of each cell to create a tilt plane.
+double[] coeff = new double[3]; //coeff[] contains A, B and C.
+coeff[0] = (edgeCell[1][1] - edgeCell[0][1])*(edgeCell[2][2] - edgeCell[0][2])-(edgeCell[1][2] - edgeCell[0][2])*(edgeCell[2][1] - edgeCell[0][1]);//A
+coeff[1] = (edgeCell[1][0] - edgeCell[0][0])*(edgeCell[2][2] - edgeCell[0][2])-(edgeCell[1][2] - edgeCell[0][2])*(edgeCell[2][0] - edgeCell[0][0]);//B
+coeff[2] = (edgeCell[1][0] - edgeCell[0][0])*(edgeCell[2][1] - edgeCell[0][1])-(edgeCell[1][1] - edgeCell[0][1])*(edgeCell[2][0] - edgeCell[0][0]);//C
+double D = edgeCell[0][1]*coeff[1] - edgeCell[0][0]*coeff[0] - edgeCell[0][2]*coeff[2];//D (not neccesary, but included if needed)
+//Plane is now defined by the function Ax + By + Cz + D = 0
+//Difference in Z between two points is delZ = -A(delX)/C - B(delY)/C
+
+//Express tilt plane as function, so relative focus of two cells can be determined [cell A(x,y) is +- z um relative to cell B(x,y)]
+//return tilt plane function

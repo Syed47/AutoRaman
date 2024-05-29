@@ -1,0 +1,144 @@
+//Import Image J routines
+import ij.*;
+import ij.IJ;
+import ij.plugin.frame.RoiManager;
+import ij.measure.ResultsTable;
+import ij.text.*;
+import ij.gui.*;
+import ij.process.*;
+import ij.ImagePlus;
+import ij.io.FileSaver;
+import mmcorej.CharVector; 
+import mmcorej.DeviceType;
+import bsh.Interpreter;
+
+//Initialise cameras, laser, and microscope 
+Interpreter inter = new Interpreter();	// Construct an interpreter
+xystage = mmc.getXYStageDevice();
+zstage = mmc.getFocusDevice();
+pos.x = mmc.getXPosition(xystage);
+pos.y = mmc.getYPosition(xystage);
+pos.z = mmc.getPosition(zstage);
+mmc.initializeDevice("AmScope");
+mmc.setProperty("FilterCube", "Label", "Position-1");
+mmc.setSerialPortCommand("COM13", "CURRENT=0", "\r\n");
+mmc.setProperty("TransmittedLamp", "Label", "On"); 
+mmc.setProperty("TransmittedLamp", "Voltage", 9);
+mmc.setExposure(25);
+//////////////////////////////////////////////////////////////////////Define variables////////////////////////////////////////////////////////////////////////////////////////////
+directory = "G:\\Kevin\\Raman automation scheme\\";
+n = 4;
+m = 4;
+n_filtered = 200;	//Number of cells to be measured. This is called by cell_filter_isolation.bsh to select the n most isolated cells.
+incX = 400;	//Number of steps in X and Y the stage moves between images in image_grid.bsh. For AmScope camera (2048X1536) with 20X 
+incY = 300;	//objective, a step of 2 on the stage corresponds to 3 pixels, approximately.
+objLow = "20X";
+objHigh = "40X";
+mmc.setProperty("Objective", "Label", objLow);
+int year = cal.get(Calendar.YEAR);
+int month = cal.get(Calendar.MONTH) + 1;      // 0 to 11
+int day = cal.get(Calendar.DAY_OF_MONTH);
+int hour = cal.get(Calendar.HOUR_OF_DAY);
+int minute = cal.get(Calendar.MINUTE);
+int second = cal.get(Calendar.SECOND);
+String time = year +"-"+ month +"-"+ day +"_"+ hour +":"+ minute +":"+ second;
+inter.set("time",time);
+////////////////////////////////////////////////////////////////Autofocus, get white spot plane/////////////////////////////////////////////////////////////////////////////////
+
+inter.set("mmc",mmc);
+inter.set("gui",gui);
+inter.set("directory",directory);
+inter.source(directory + "autofocus_WS_plane.bsh");
+print("autofocus_WS_plane.bsh");
+
+/////////////////////////////////////////////////////////////////Record n x m grid of images////////////////////////////////////////////////////////////////////////////////////
+
+inter.set("incX", incX);			// Set variables
+inter.set("incY", incY);
+inter.set("n", n);								
+inter.set("m", m); 
+inter.source(directory + "image_grid.bsh");
+print("image_grid.bsh");
+
+/////////////////////////////////////////////////////////////Stitch images, find cell positions//////////////////////////////////////////////////////////////////////////////
+
+inter.source(directory + "stitch_images.bsh");
+des = inter.get("des");
+print("stitch_images.bsh");
+
+////////////////////////////////////////////////////Filter criteria for best cells to probe (most isolated)//////////////////////////////////////////////////////////////////////
+
+inter.set("cellXY", des);
+inter.set("n_filtered", n_filtered);
+inter.source(directory + "cell_filter_isolation.bsh");
+cellFiltered = inter.get("cellFiltered");
+n_cells = inter.get("n_cells");
+print("cell_filter_isolation.bsh");
+
+//////////////////////////////////////////////////////////////Set Nearest Neighbour path for cells////////////////////////////////////////////////////////////////////////////////////
+
+inter.set("cellPos", cellFiltered);
+inter.source(directory + "cell_probe_order_NN.bsh");
+NN_list_abs = inter.get("NN_list_abs");
+print("cell_probe_order_NN.bsh");
+
+//////////////////////////////////////////////Finds relative position of laser spot to centre of image///////////////////////////////////////////////////////////////////////
+
+inter.set("objHigh", objHigh);
+inter.source(directory + "objective_switch.bsh");
+objRatio = inter.get("objRatio");
+objShift = inter.get("objShift");
+inter.source(directory + "autofocus_WS_plane.bsh");
+print("objective_switch.bsh");
+
+//////////////////////////////////////////////Finds relative position of laser spot to centre of image///////////////////////////////////////////////////////////////////////
+
+inter.source(directory + "autofocus_image_focus_plane.bsh");
+inter.source(directory + "laser_offset.bsh");
+laserOffset = inter.get("laserOffset");
+laserSpot = inter.get("laserSpot");
+print("laser_offset.bsh");
+
+//////////////////////////////////////////////////Transform camera coordinates to stage coordinates///////////////////////////////////////////////////////////////////////
+
+inter.set("objShift", objShift);
+inter.set("objRatio", objRatio);
+inter.set("laserOffset", laserOffset);
+inter.set("NN_list_abs", NN_list_abs);
+inter.source(directory + "coordinate_scaling.bsh");
+cellStage = inter.get("cellStage");
+theta = inter.get("theta");
+scaler = inter.get("scaler");
+offset = inter.get("offset");
+print("coordinate_scaling.bsh");
+
+////////////////////////////////////////////Autofocus on distant cells, use relative in-focus planes to establish tilt plane/////////////////////////////////////////////////////////
+
+inter.set("cellStage", cellStage);
+inter.source(directory + "tilt_plane_function.bsh");
+tiltFnc = inter.get("coeff");
+print("tilt_plane_function.bsh");
+
+///////////////////////////////////////////////////Finds the plane with optimal Raman spectrum///////////////////////////////////////////////////////////////////////////
+Q = 0.0;
+n = 0;
+while(Q < 1.2)
+{
+	mmc.setXYPosition(cellStage[n][0], cellStage[n][1]);
+	inter.source(directory + "autofocus_raman_plane.bsh");
+	Q = inter.get("Q");
+	print(Q);
+	n++;
+}
+raman_plane = inter.get("raman_plane");
+///////////////////////////////////////////////////Move to each cell and record a spectrum///////////////////////////////////////////////////////////////////////////
+inter.set("laserSpot",laserSpot);
+inter.set("tiltFnc", tiltFnc);
+inter.set("theta",theta);
+inter.set("scaler",scaler);
+inter.set("offset",offset);
+inter.set("raman_plane",raman_plane);
+inter.source(directory + "record_spectra_AMScope.bsh");
+print("record_spectra.bsh");
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

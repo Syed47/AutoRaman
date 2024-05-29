@@ -1,0 +1,41 @@
+//Stitch images, find cell positions
+import ij.*;
+import ij.IJ;
+import ij.plugin.frame.RoiManager;
+import ij.measure.ResultsTable;
+import ij.text.*;
+import ij.gui.*;
+import ij.process.*;
+import ij.ImagePlus;
+import ij.io.FileSaver;
+import mmcorej.CharVector;
+
+//Declare parameters
+input = directory + "Stitches";
+genericFilename = "imageXY-{i}.tif";
+stitchImage = "stitchedImage";
+
+//Run ImageJ stitching plugin
+IJ.run("Clear Results");
+IJ.run("Grid/Collection stitching", "type=[Grid: row-by-row] order=[Right & Up] grid_size_x="+n+" grid_size_y="+m+" tile_overlap=90 first_file_index_i=1 directory=["
++input +"] file_names="+genericFilename+" output_textfile_name=_ambient_stitched.txt fusion_method=[Linear Blending]regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 compute_overlap subpixel_accuracy computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]");
+IJ.saveAs("Tiff", input+"\\stitchedImage.tif");
+//Run point selection on stitched image
+IJ.run("Find Maxima...", "noise=35 output=[Point Selection]");
+IJ.run("Measure");
+
+TextPanel tp = IJ.getTextPanel();
+ResultsTable rt = tp.getResultsTable();
+
+num = rt.getCounter();//
+
+int[][] des = new int[num][2];
+for (k=0;k<num;k++)
+{
+	des[k][0] = (int)rt.getValue("X",k);
+	des[k][1] = (int)rt.getValue("Y",k);
+}
+
+IJ.selectWindow("stitchedImage.tif");
+IJ.run("Close"); 
+IJ.run("Clear Results");
