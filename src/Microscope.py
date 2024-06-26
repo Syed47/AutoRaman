@@ -21,15 +21,13 @@ class Microscope:
         self.core = Core()
         self.core.load_system_configuration(self.config_file)
 
-    def auto_focus(self, strategy_class, start, end, step=1):
-        self.focus_strategy = strategy_class(self.lamp, self.stage, self.camera)
+
+    def auto_focus(self, strategy:Autofocus, start, end, step=1):
+        self.focus_strategy = strategy(self)
         self.focus_strategy.zscan(start, end, step)
         return self.focus_strategy.focus()
 
     def __del__(self):
         if self.headless:
             stop_headless()
-
-
-
 
