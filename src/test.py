@@ -1,16 +1,16 @@
 # Test Script
+from controller import controller
+from microscope import Microscope
+from Autofocus import Amplitude, Phase, RamanSpectra
 
-from Microscope import Microscope
-from Autofocus import Amplitude, Phase
+controller.config_file = "IX81_LUDL_amscope_Laser532.cfg"
 
 ms = Microscope()
-
-
 
 ms.camera.set_option("Binning", "1x1")
 ms.camera.set_option("PixelType", "GREY8")
 ms.camera.set_option("ExposureAuto", "0")
-ms.camera.set_exposure(16)
+ms.camera.set_exposure(17)
 
-result = ms.auto_focus(strategy_class=Amplitude, start=1350, end=1400)
+result = ms.auto_focus(strategy=Amplitude, start=1350, end=1400)
 print(result)

@@ -1,11 +1,12 @@
-from pycromanager import Core
+from controller import controller
 
 class Lamp:
-    def __init__(self, core:Core):
-        self.core = core
-    
+
+    def __init__(self):
+        self.controller = controller
+
     def set_on(self):
-        self.core.set_property("TransmittedLamp", "Label", "On")
+        self.controller.set_property("TransmittedLamp", "Label", "On")
     
     def set_off(self):
-        self.core.set_property("TransmittedLamp", "Label", "Off")
+        self.controller.set_property("TransmittedLamp", "Label", "Off")
