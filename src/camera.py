@@ -1,6 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from controller import controller
+from time import sleep
 
 class ICamera(ABC):
     def __init__(self, camera:str):
@@ -25,7 +26,7 @@ class Camera(ICamera):
         super().__init__(camera)
         self.width = self.controller.get_image_width()
         self.height = self.controller.get_image_height()
-        self.set_exposure(exposure)
+       
 
     def capture(self) -> np.array:
         self.controller.snap_image()
@@ -34,9 +35,13 @@ class Camera(ICamera):
         byte_depth = self.controller.get_bytes_per_pixel()
 
         if byte_depth == 1:
-            img = np.reshape(img, (self.height, self.width)).astype(np.uint8)
+            img = np.reshape(img, (self.height, self.width, 1)).astype(np.uint8)
         elif byte_depth == 2:
-            img = np.reshape(img, (self.height, self.width)).astype(np.uint16)
+            img = np.reshape(img, (self.height, self.width, 2)).astype(np.uint16)
+        elif byte_depth == 3:
+            img = np.reshape(img, (self.height, self.width, 3)).astype(np.uint16)
+        elif byte_depth == 4:
+            img = np.reshape(img, (self.height, self.width, 4)).astype(np.uint16)
         else:
             raise ValueError(f'Invalid byte depth: {byte_depth}')
         
