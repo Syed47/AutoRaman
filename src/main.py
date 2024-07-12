@@ -1,7 +1,7 @@
+
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QPushButton, QLineEdit, QRadioButton, QSizePolicy, QTabWidget, QFormLayout, QFrame
+from PyQt5.QtWidgets import QApplication, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton, QRadioButton, QTabWidget
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -10,20 +10,20 @@ class MainWindow(QWidget):
         self.setWindowTitle("AutoRaman")
         self.setGeometry(100, 100, 800, 600)
 
-        # Main layout
+        
         main_layout = QHBoxLayout()
 
-        # Create the QTabWidget
+        
         tab_widget = QTabWidget()
         tab_widget.setStyleSheet("""
             QTabBar::tab {
-                height: 24px;
-                width: 160px;
-                font-size: 12pt;
+                height:24px;
+                width: 120px;
+                font-size: 14px;
             }
         """)
 
-        # Create Tab 1
+        
         tab1 = QWidget()
         tab1_layout = QHBoxLayout()
 
@@ -35,6 +35,7 @@ class MainWindow(QWidget):
                 border: none; /* No border */
                 padding: 10px 20px; /* Padding */
                 font-size: 16px; /* Font size */
+                border-radius: 8px;
             }
             QPushButton:hover {
                 background-color: #45a049; /* Darker green on hover */
@@ -60,118 +61,130 @@ class MainWindow(QWidget):
                 border: 1px solid #ccc; /* Gray border */
                 border-radius: 4px; /* Rounded corners */
             }
+                           
+            QRadioButton::indicator::unchecked {
+                border: 2px solid #555; /* Border color of unchecked state */
+                background-color: #EEE; /* Background color of unchecked state */
+                border-radius: 10px; /* Rounded corners for the indicator */
+            }
+            QRadioButton::indicator::checked {
+                border: 2px solid #555; /* Border color of checked state */
+                background-color: #4CAF50; /* Background color of checked state */
+                border-radius: 10px; /* Rounded corners for the indicator */
+            }      
         """)
 
-        # Create the QFrame for Tab 1
+        
         frame_tab1 = QFrame()
         frame_tab1.setFrameShape(QFrame.StyledPanel)
         frame_tab1_layout = QHBoxLayout()
 
-        # Left panel in frame_tab1 with input fields, radio buttons, and finish button
+        
         left_panel = QFrame()
-        left_panel.setFrameShape(QFrame.StyledPanel)
-        left_layout = QFormLayout()
+        left_panel.setStyleSheet("QFrame { border: 1px solid black; border-radius: 4px };")  
+        left_panel.setFixedSize(320, 600)
 
-        line_edit1 = QLineEdit()
-        line_edit1.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        line_edit2 = QLineEdit()
-        line_edit2.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        line_edit3 = QLineEdit()
-        line_edit3.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        
+        line_label1 = QLabel("Start (μm):", left_panel)
+        line_label1.setGeometry(40, 40, 100, 40)
+        line_label1.setStyleSheet("QLabel { border: none; font-size:16px; };")
+        line_edit1 = QLineEdit(left_panel)
+        line_edit1.setPlaceholderText("1350")
+        line_edit1.setStyleSheet("QLineEdit { font-size:16px; };")
+        line_edit1.setGeometry(160, 40, 100, 40)
 
-        left_layout.addRow("Start (mm):", line_edit1)
-        left_layout.addRow("End (mm):", line_edit2)
-        left_layout.addRow("Step (mm):", line_edit3)
+        line_label2 = QLabel("End (μm):", left_panel)
+        line_label2.setGeometry(40, 100, 100, 40)
+        line_label2.setStyleSheet("QLabel { border: none; font-size:16px; };")
+        line_edit2 = QLineEdit(left_panel)
+        line_edit2.setPlaceholderText("1400")
+        line_edit2.setStyleSheet("QLineEdit { font-size:16px; };")
+        line_edit2.setGeometry(160, 100, 100, 40)
 
-        # Add horizontal line separator
-        line_separator = QFrame()
+        line_label3 = QLabel("Step (μm):", left_panel)
+        line_label3.setGeometry(40, 160, 100, 40)
+        line_label3.setStyleSheet("QLabel { border: none; font-size:16px; };")
+        line_edit3 = QLineEdit(left_panel)
+        line_edit3.setPlaceholderText("1")
+        line_edit3.setStyleSheet("QLineEdit { font-size:16px; };")
+        line_edit3.setGeometry(160, 160, 100, 40)
+
+        
+        line_separator = QFrame(left_panel)
+        line_separator.setGeometry(0, 240, 400, 1)
         line_separator.setFrameShape(QFrame.HLine)
         line_separator.setFrameShadow(QFrame.Sunken)
-        left_layout.addRow(line_separator)
 
-        radio_button1 = QRadioButton("Amplitude")
-        radio_button2 = QRadioButton("Phase")
-        radio_button1.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        radio_button2.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        radio_layout = QVBoxLayout()
-        radio_layout.addWidget(radio_button1)
-        radio_layout.addWidget(radio_button2)
+        
+        radio_label = QLabel("Autofocus Strategy:", left_panel)
+        radio_label.setGeometry(20, 300, 140, 40)
+        radio_label.setStyleSheet("QLabel { border: none; font-size:16px; };")
+        radio_button1 = QRadioButton("Amplitude", left_panel)
+        radio_button1.setChecked(True)
+        radio_button1.setGeometry(160, 280, 180, 40)
+        radio_button2 = QRadioButton("Phase", left_panel)
+        radio_button2.setGeometry(160, 320, 180, 40)
 
-
-        # Center align radio buttons vertically and horizontally
-        radio_layout.setAlignment(Qt.AlignCenter)
-        left_layout.addRow("Autofocus Strategy:", radio_layout)
-
-        # Add horizontal line separator
-        line_separator = QFrame()
-        line_separator.setFrameShape(QFrame.HLine)
-        line_separator.setFrameShadow(QFrame.Sunken)
-        left_layout.addRow(line_separator)
-
-        run_button = QPushButton("Run")
-        run_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        left_layout.addWidget(run_button)
-
-        # Set alignment and spacing for the left panel layout
-        left_layout.setLabelAlignment(Qt.AlignCenter)
-        left_layout.setHorizontalSpacing(20)  # Example spacing between labels and widgets
-        left_layout.setVerticalSpacing(20)
-        left_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        left_panel.setLayout(left_layout)
-
-        # Right panel in frame_tab1 with image view
-        right_panel = QFrame()
-        right_panel.setFrameShape(QFrame.StyledPanel)
-        right_layout = QVBoxLayout()
-
-        # Default image to show
-        pixmap1 = QPixmap("../Autofocus/image_19.tif")
-        image_label1 = QLabel()
-        image_label1.setPixmap(pixmap1)
-        image_label1.setFixedSize(400, 300)  # Set fixed size for the image label
-        image_label1.setScaledContents(True)  # Maintain aspect ratio and scale contents
-        right_layout.addWidget(image_label1)
-
-        # Add horizontal line separator
-        line_separator2 = QFrame()
+        
+        line_separator2 = QFrame(left_panel)
+        line_separator2.setGeometry(0, 400, 400, 1)
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
-        right_layout.addWidget(line_separator2)
 
-        pixmap2 = QPixmap("../Autofocus/image_1.tif")
-        image_label2 = QLabel()
-        image_label2.setPixmap(pixmap2)
-        image_label2.setFixedSize(400, 300)  # Set fixed size for the image label
-        image_label2.setScaledContents(True)  # Maintain aspect ratio and scale contents
-        right_layout.addWidget(image_label2)
-
-        # Add horizontal line separator
-        line_separator2 = QFrame()
+        run_button = QPushButton("Run", left_panel)
+        run_button.setGeometry(20, 440, 280, 40)
+        
+        line_separator2 = QFrame(left_panel)
+        line_separator2.setGeometry(0, 520, 400, 1)
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
-        right_layout.addWidget(line_separator2)
 
-        zfocus = QLineEdit()
-        zfocus.setPlaceholderText("Z-Focus (mm)")
+        zfocus = QLineEdit(left_panel)
+        zfocus.setPlaceholderText("z-distance result (μm)")
+        zfocus.setStyleSheet("QLineEdit { font-size:16px; };")
+        zfocus.setGeometry(60, 540, 200, 40)
         zfocus.setReadOnly(True)
-        zfocus.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        right_layout.addWidget(zfocus)
 
-        right_panel.setLayout(right_layout)
+        
+        right_panel = QFrame()
+        right_panel.setStyleSheet("QFrame { border: 1px solid black; border-radius: 4px; };")  
+        right_panel.setFixedSize(460, 600)
 
-        # Add left and right panels to frame_tab1 layout with proportional width
-        frame_tab1_layout.addWidget(left_panel, 2)  # Left panel takes 2/3 of the space
-        frame_tab1_layout.addWidget(right_panel, 1)  # Right panel takes 1/3 of the space
+        pixmap1 = QPixmap("../Autofocus/image_2.tif")
+        image_label1 = QLabel(right_panel)
+        image_label1.setStyleSheet("QLabel { border: 1px solid black; border-radius: 0px; };")
+        image_label1.setPixmap(pixmap1)
+        image_label1.setFixedSize(400, 280)
+        image_label1.setGeometry(30, 10, 400, 280)
+        image_label1.setScaledContents(True)  
+
+        pixmap2 = QPixmap("bar.png")
+        image_label2 = QLabel(right_panel)
+        image_label2.setStyleSheet("QLabel { border: 1px solid black; border-radius: 0px; };")
+        image_label2.setPixmap(pixmap2)
+        image_label2.setFixedSize(400, 280)
+        image_label2.setGeometry(30, 310, 400, 280)
+        image_label2.setScaledContents(True)  
+
+        
+        frame_tab1_layout.addWidget(left_panel)
+        frame_tab1_layout.addWidget(right_panel)
         frame_tab1.setLayout(frame_tab1_layout)
 
-        # Add frame_tab1 to tab1 layout
+        
         tab1_layout.addWidget(frame_tab1)
         tab1.setLayout(tab1_layout)
 
-        # Add tab1 to the QTabWidget
+
+        settings = QWidget()
+        settings_layout = QVBoxLayout()
+        settings_layout.addWidget(QLabel(f"This is settings"))
+        settings.setLayout(settings_layout)
+        tab_widget.addTab(settings, "Settings")
+
         tab_widget.addTab(tab1, "Autofocus")
 
-        # Add additional tabs
+        
         for i in ['Laser', 'Cells', 'Spectra', 'Repeat', 'Optimise']:
             tab = QWidget()
             tab_layout = QVBoxLayout()
@@ -179,7 +192,7 @@ class MainWindow(QWidget):
             tab.setLayout(tab_layout)
             tab_widget.addTab(tab, f"{i}")
 
-        # Add QTabWidget to the main layout
+        
         main_layout.addWidget(tab_widget)
 
         self.setLayout(main_layout)
