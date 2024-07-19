@@ -30,7 +30,7 @@ style_sheet = """
         background-color: #4CAF50; /* Green background */
         color: #ffffff; /* White text */
         border: none; /* No border */
-        padding: 10px 20px; /* Padding */
+        padding: 10px 10px; /* Padding */
         font-size: 16px; /* Font size */
         border-radius: 8px;
     }
