@@ -1,16 +1,13 @@
-from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QPushButton
+from PyQt5.QtCore import Qt
 
 class LogConsole(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.parent = parent
-        self.initUI()
+        self.init_ui()
 
-    def initUI(self):
-        self.log_widget = QWidget()
-        self.log_layout = QVBoxLayout()
-        self.log_widget.setLayout(self.log_layout)
+    def init_ui(self):
+        self.log_layout = QVBoxLayout(self)
 
         self.log_console = QTextEdit()
         self.log_console.setReadOnly(True)
@@ -37,24 +34,18 @@ class LogConsole(QWidget):
             }
         """)
 
-
         self.log_layout.addWidget(self.collapse_button, alignment=Qt.AlignCenter)
         self.log_layout.addWidget(self.log_console)
-
-
 
     def toggle_log_console(self, checked):
         if checked:
             self.log_console.show()
             self.collapse_button.setText("<<")
-            self.parent.setFixedSize(1040, 660)
+            self.parentWidget().setFixedSize(1040, 660)
         else:
             self.log_console.hide()
             self.collapse_button.setText(">>")
-            self.parent.setFixedSize(870, 660)
+            self.parentWidget().setFixedSize(870, 660)
 
     def log(self, message):
         self.log_console.append(message)
-
-    def get_widget(self):
-        return self.log_widget

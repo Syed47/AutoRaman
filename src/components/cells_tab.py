@@ -1,15 +1,18 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PyQt5.QtWidgets import  QVBoxLayout, QLabel
 
-class CellsTab(QWidget):
+from tab import Tab
+
+class CellsTab(Tab):
     def __init__(self, logger=None):
-        super().__init__()
-        self.logger = logger
-        self.initUI()
+        super().__init__(logger)
+        self.init_ui()
+        self.connect_signals()
 
-    def initUI(self):
+    def init_ui(self):        
         tab_layout = QVBoxLayout()
         tab_layout.addWidget(QLabel("This is Cells"))
         self.setLayout(tab_layout)
 
-    def get_widget(self):
-        return self
+    def connect_signals(self):
+        pass
+

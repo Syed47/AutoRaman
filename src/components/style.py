@@ -1,4 +1,4 @@
-style_sheet = """
+StyleSheet = """
     /* General Styling for the Main Window */
     QWidget {
         background-color: #2e2e2e; /* Dark background for all widgets */
@@ -107,4 +107,4 @@ style_sheet = """
     }
 """
 
-__all__ = ['style_sheet']
+__all__ = ['StyleSheet']

@@ -1,18 +1,15 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QFrame, QLabel, QCheckBox, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QHBoxLayout, QFrame, QLabel, QCheckBox, QLineEdit, QPushButton
 from PyQt5.QtGui import QPixmap
 
-from style import style_sheet
+from components.tab import Tab
 
-class LaserTab(QWidget):
+class LaserTab(Tab):
     def __init__(self, logger=None):
-        super().__init__()
-        self.logger = logger
-        self.initUI()
+        super().__init__(logger)
+        self.init_ui()
         self.connect_signals()
 
-    def initUI(self):
-        self.tab_laser = QWidget()
-        self.tab_laser.setStyleSheet(style_sheet)
+    def init_ui(self):
         tab_layout = QHBoxLayout()
         
         frame_tab = QFrame()
@@ -129,14 +126,11 @@ class LaserTab(QWidget):
         frame_tab.setLayout(frame_tab_layout)
 
         tab_layout.addWidget(frame_tab)
-        self.tab_laser.setLayout(tab_layout)
-
-    def get_widget(self):
-        return self.tab_laser
+        self.setLayout(tab_layout)
 
     def connect_signals(self):
         self.btn_run.clicked.connect(self.start_laser_focus)
 
     def start_laser_focus(self):
-        self.logger.log("autofocus laser")
-        return
+        if self.logger:
+            self.logger.log("autofocus laser")

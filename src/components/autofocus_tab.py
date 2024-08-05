@@ -1,22 +1,19 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton, QRadioButton
+from PyQt5.QtWidgets import QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton, QRadioButton
 from PyQt5.QtGui import QPixmap
 
-from style import style_sheet
+from components.tab import Tab
+
+from core.autofocus import Autofocus, Amplitude, Phase
+from core.microscope import microscope
 
 
-class AutofocusTab(QWidget):
+class AutofocusTab(Tab):
     def __init__(self, logger=None):
-        super().__init__()
-        self.logger = logger
-        self.initUI()
-
-    def initUI(self):
-        self.create_autofocus_tab()
+        super().__init__(logger)
+        self.init_ui()
         self.connect_signals()
 
-    def create_autofocus_tab(self):
-        self.tab_autofocus = QWidget()
-        self.tab_autofocus.setStyleSheet(style_sheet)
+    def init_ui(self):
         tab_layout = QHBoxLayout()
 
         frame_tab = QFrame()
@@ -78,17 +75,17 @@ class AutofocusTab(QWidget):
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
 
-        zfocus = QLineEdit(left_panel)
-        zfocus.setPlaceholderText("z-distance result (μm)")
-        zfocus.setStyleSheet("QLineEdit { font-size:16px; };")
-        zfocus.setGeometry(60, 470, 200, 40)
-        zfocus.setReadOnly(True)
+        self.zfocus = QLineEdit(left_panel)
+        self.zfocus.setPlaceholderText("z-distance result (μm)")
+        self.zfocus.setStyleSheet("QLineEdit { font-size:16px; };")
+        self.zfocus.setGeometry(60, 470, 200, 40)
+        self.zfocus.setReadOnly(True)
 
         right_panel = QFrame()
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
         right_panel.setFixedSize(420, 540)
 
-        self.plot_variance = QPixmap("image_2.tif")
+        self.plot_variance = QPixmap("components/image_2.tif")
         image_label1 = QLabel(right_panel)
         image_label1.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         image_label1.setPixmap(self.plot_variance)
@@ -96,7 +93,7 @@ class AutofocusTab(QWidget):
         image_label1.setGeometry(20, 5, 380, 260)
         image_label1.setScaledContents(True)
 
-        self.plot_brighfield = QPixmap("bar.png")
+        self.plot_brighfield = QPixmap("components/bar.png")
         image_label2 = QLabel(right_panel)
         image_label2.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         image_label2.setPixmap(self.plot_brighfield)
@@ -109,17 +106,13 @@ class AutofocusTab(QWidget):
         frame_tab.setLayout(frame_tab_layout)
 
         tab_layout.addWidget(frame_tab)
-        self.tab_autofocus.setLayout(tab_layout)
-
-    def get_widget(self):
-        return self.tab_autofocus
+        self.setLayout(tab_layout)
 
     def connect_signals(self):
         self.btn_run.clicked.connect(self.start_autofocus)
 
     def start_autofocus(self):
         self.logger.log("autofocus")
-        return
         try:
             start = float(self.txt_start.text())
             end = float(self.txt_end.text())
@@ -145,11 +138,12 @@ class AutofocusTab(QWidget):
 
         zfocus = None
         if amplitude:
-            zfocus = self.microscope.focus("Amplitude", start, end, step)
+            zfocus = microscope.focus(Amplitude, start, end, step)
         elif phase:
-            zfocus = self.microscope.focus("Phase", start, end, step)
+            zfocus = microscope.focus(Phase, start, end, step)
 
         if zfocus is not None:
             self.logger.append(f"Autofocus Distance: {zfocus}")
+            self.zfocus = zfocus
         else:
             self.logger.append("Error: Autofocus failed. Please check the settings and try again.")

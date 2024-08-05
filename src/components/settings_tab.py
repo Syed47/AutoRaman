@@ -1,20 +1,16 @@
-from PyQt5.QtWidgets import QSpacerItem, QSizePolicy, QFileDialog, QWidget, QHBoxLayout, QGridLayout, QFrame, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton, QRadioButton
+from PyQt5.QtWidgets import QFileDialog, QWidget, QHBoxLayout, QGridLayout, QFrame, QSlider, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton
 from PyQt5.QtGui import QPixmap
-from style import style_sheet
+from PyQt5.QtCore import Qt
 
-class SettingsTab(QWidget):
+from components.tab import Tab
+
+class SettingsTab(Tab):
     def __init__(self, logger=None):
-        super().__init__()
-        self.logger = logger
-        self.initUI()
-
-    def initUI(self):
-        self.create_settings_tab()
+        super().__init__(logger)
+        self.init_ui()
         self.connect_signals()
 
-    def create_settings_tab(self):
-        self.tab_settings = QWidget()
-        self.tab_settings.setStyleSheet(style_sheet)
+    def init_ui(self):
         tab_layout = QHBoxLayout()
 
         frame_tab = QFrame()
@@ -88,14 +84,6 @@ class SettingsTab(QWidget):
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
 
-        self.checkbox_aut_exposure = QCheckBox("Auto-Exposure", left_panel)
-        self.checkbox_aut_exposure.setGeometry(60, 430, 180, 40)
-
-        self.checkbox_inverted = QCheckBox("Inverted Image", left_panel)
-        self.checkbox_inverted.setGeometry(60, 470, 180, 40)
-
-        self.checkbox_lamp = QCheckBox("Lamp", left_panel)
-        self.checkbox_lamp.setGeometry(60, 510, 180, 40)
 
         right_panel = QFrame()
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
@@ -146,15 +134,52 @@ class SettingsTab(QWidget):
         button_layout.addWidget(label_z, 1, 4)
 
         dummy_widget = QWidget()
-        dummy_widget.setFixedSize(40, 40)
+        dummy_widget.setFixedSize(0, 0)
         button_layout.addWidget(dummy_widget, 0, 3)
         button_layout.addWidget(dummy_widget, 1, 3)
         button_layout.addWidget(dummy_widget, 2, 3)
 
         button_layout_widget = QWidget(right_panel)
         button_layout_widget.setLayout(button_layout)
-        button_layout_widget.setGeometry(75, 310, 280, 140)
-        # button_layout_widget.setStyleSheet("border: 1px solid #444444;")
+        button_layout_widget.setGeometry(200, 310, 220, 140)
+        button_layout_widget.setStyleSheet(""" QWidget { border: 1px solid #444444; } QPushButton { border: none; }""")
+
+        self.checkbox_aut_exposure = QCheckBox("Auto-Exposure", right_panel)
+        self.checkbox_aut_exposure.setGeometry(10, 310, 180, 40)
+        # self.checkbox_aut_exposure.setStyleSheet("border: 1px solid #444444;")
+
+        # self.checkbox_inverted = QCheckBox("Inverted Image", right_panel)
+        # self.checkbox_inverted.setGeometry(10, 360, 180, 40)
+        # self.checkbox_inverted.setStyleSheet("border: 1px solid #444444;")
+
+        label = QLabel("Exposure", right_panel)
+        label.setGeometry(15, 360, 80, 40)
+        label.setAlignment(Qt.AlignCenter)
+        label.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
+        self.slider = QSlider(Qt.Horizontal, right_panel)
+        self.slider.setGeometry(100, 360, 80, 40)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(10)
+        self.slider.setValue(0)
+        self.slider.setTickPosition(QSlider.TicksBelow)  
+        self.slider.setTickInterval(10) 
+
+        # self.checkbox_lamp = QCheckBox("Lamp", right_panel)
+        # self.checkbox_lamp.setGeometry(10, 410, 180, 40)
+        # self.checkbox_lamp.setStyleSheet("border: 1px solid #444444;")
+        label = QLabel("Lamp", right_panel)
+        label.setGeometry(2, 410, 80, 40)
+        label.setAlignment(Qt.AlignCenter)
+        label.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
+        self.slider = QSlider(Qt.Horizontal, right_panel)
+        self.slider.setGeometry(100, 410, 80, 40)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(10)
+        self.slider.setValue(0)
+        self.slider.setTickPosition(QSlider.TicksBelow)  
+        self.slider.setTickInterval(10) 
 
         line_separator2 = QFrame(right_panel)
         line_separator2.setGeometry(0, 460, 440, 1)
@@ -169,7 +194,7 @@ class SettingsTab(QWidget):
         frame_tab.setLayout(frame_tab_layout)
 
         tab_layout.addWidget(frame_tab)
-        self.tab_settings.setLayout(tab_layout)
+        self.setLayout(tab_layout)
 
     def browse_config_file(self):
         options = QFileDialog.Options()
@@ -177,10 +202,7 @@ class SettingsTab(QWidget):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Configuration File", "", "Config Files (*.cfg);;All Files (*)", options=options)
         if file_name:
             self.config_file_path.setText(file_name)
-
-    def get_widget(self):
-        return self.tab_settings
-
+    
     def connect_signals(self):
         self.btn_capture.clicked.connect(self.apply_settings)
         self.btn_left.clicked.connect(lambda : self.logger.log("direction applied"))
