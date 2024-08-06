@@ -6,6 +6,9 @@ from components.tab import Tab
 from core.autofocus import Autofocus, Amplitude, Phase
 from core.microscope import microscope
 
+import matplotlib.pyplot as plt
+from io import BytesIO
+
 
 class AutofocusTab(Tab):
     def __init__(self, logger=None):
@@ -29,6 +32,7 @@ class AutofocusTab(Tab):
         line_label1.setStyleSheet("QLabel { border: none; font-size:16px; };")
         self.txt_start = QLineEdit(left_panel)
         self.txt_start.setPlaceholderText("1350 (μm)")
+        self.txt_start.setText("1350")
         self.txt_start.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_start.setGeometry(160, 20, 100, 40)
 
@@ -37,6 +41,7 @@ class AutofocusTab(Tab):
         line_label2.setStyleSheet("QLabel { border: none; font-size:16px; };")
         self.txt_end = QLineEdit(left_panel)
         self.txt_end.setPlaceholderText("1400 (μm)")
+        self.txt_end.setText("1400")
         self.txt_end.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_end.setGeometry(160, 80, 100, 40)
 
@@ -45,6 +50,7 @@ class AutofocusTab(Tab):
         line_label3.setStyleSheet("QLabel { border: none; font-size:16px; };")
         self.txt_step = QLineEdit(left_panel)
         self.txt_step.setPlaceholderText("1 (μm)")
+        self.txt_step.setText("2")
         self.txt_step.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_step.setGeometry(160, 140, 100, 40)
 
@@ -75,31 +81,32 @@ class AutofocusTab(Tab):
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
 
-        self.zfocus = QLineEdit(left_panel)
-        self.zfocus.setPlaceholderText("z-distance result (μm)")
-        self.zfocus.setStyleSheet("QLineEdit { font-size:16px; };")
-        self.zfocus.setGeometry(60, 470, 200, 40)
-        self.zfocus.setReadOnly(True)
+        self.txt_zfocus = QLineEdit(left_panel)
+        self.txt_zfocus.setPlaceholderText("z-distance result (μm)")
+        self.txt_zfocus.setText("001")
+        self.txt_zfocus.setStyleSheet("QLineEdit { font-size:16px; };")
+        self.txt_zfocus.setGeometry(60, 470, 200, 40)
+        self.txt_zfocus.setReadOnly(True)
 
         right_panel = QFrame()
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
         right_panel.setFixedSize(420, 540)
 
-        self.plot_variance = QPixmap("components/image_2.tif")
-        image_label1 = QLabel(right_panel)
-        image_label1.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
-        image_label1.setPixmap(self.plot_variance)
-        image_label1.setFixedSize(380, 260)
-        image_label1.setGeometry(20, 5, 380, 260)
-        image_label1.setScaledContents(True)
+        self.plot_bf = QPixmap("components/image_2.tif")
+        self.img_bf = QLabel(right_panel)
+        self.img_bf.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        self.img_bf.setPixmap(self.plot_bf)
+        self.img_bf.setFixedSize(380, 260)
+        self.img_bf.setGeometry(20, 5, 380, 260)
+        self.img_bf.setScaledContents(True)
 
-        self.plot_brighfield = QPixmap("components/bar.png")
-        image_label2 = QLabel(right_panel)
-        image_label2.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
-        image_label2.setPixmap(self.plot_brighfield)
-        image_label2.setFixedSize(380, 260)
-        image_label2.setGeometry(20, 275, 380, 260)
-        image_label2.setScaledContents(True)
+        self.plot_var = QPixmap("components/bar.png")
+        self.img_var = QLabel(right_panel)
+        self.img_var.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        self.img_var.setPixmap(self.plot_var)
+        self.img_var.setFixedSize(380, 260)
+        self.img_var.setGeometry(20, 275, 380, 260)
+        self.img_var.setScaledContents(True)
 
         frame_tab_layout.addWidget(left_panel)
         frame_tab_layout.addWidget(right_panel)
@@ -111,6 +118,17 @@ class AutofocusTab(Tab):
     def connect_signals(self):
         self.btn_run.clicked.connect(self.start_autofocus)
 
+    def variance_plot(self):
+        variance = microscope.focus_strategy.batch_variance
+        path = f"{microscope.focus_strategy.image_dir}/plots/variance.png"
+        plt.bar(list(range(len(variance))), variance, color='blue', edgecolor='black')
+        plt.xticks(list(range(len(variance))))
+        plt.title('Image Variance')
+        plt.xlabel('Image')
+        plt.ylabel('Variance')
+        plt.savefig(path)
+        return path
+
     def start_autofocus(self):
         self.logger.log("autofocus")
         try:
@@ -118,32 +136,40 @@ class AutofocusTab(Tab):
             end = float(self.txt_end.text())
             step = float(self.txt_step.text())
         except ValueError:
-            self.logger.append("Error: Invalid input for start, end, or step. Please enter numeric values.")
+            self.logger.log("Error: Invalid input for start, end, or step. Please enter numeric values.")
             return
 
         if start >= end:
-            self.logger.append("Error: Start value must be less than end value.")
+            self.logger.log("Error: Start value must be less than end value.")
             return
 
         if step <= 0:
-            self.logger.append("Error: Step value must be greater than zero.")
+            self.logger.log("Error: Step value must be greater than zero.")
             return
 
         amplitude = self.radio_amplitude.isChecked()
         phase = self.radio_phase.isChecked()
 
         if not amplitude and not phase:
-            self.logger.append("Error: No autofocus strategy selected.")
+            self.logger.log("Error: No autofocus strategy selected.")
             return
 
         zfocus = None
         if amplitude:
-            zfocus = microscope.focus(Amplitude, start, end, step)
+            zfocus = microscope.auto_focus(Amplitude, start, end, step)
         elif phase:
-            zfocus = microscope.focus(Phase, start, end, step)
+            zfocus = microscope.auto_focus(Phase, start, end, step)
 
         if zfocus is not None:
-            self.logger.append(f"Autofocus Distance: {zfocus}")
+            self.logger.log(f"Autofocus Distance: {zfocus}")
             self.zfocus = zfocus
+            self.txt_zfocus.setText(str(self.zfocus))
+
+            self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
+            self.img_bf.setPixmap(self.plot_bf)
+
+            self.variance_plot()
+            self.plot_var = QPixmap(self.variance_plot())
+            self.img_var.setPixmap(self.plot_var)
         else:
-            self.logger.append("Error: Autofocus failed. Please check the settings and try again.")
+            self.logger.log("Error: Autofocus failed. Please check the settings and try again.")

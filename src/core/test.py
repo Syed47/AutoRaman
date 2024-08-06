@@ -23,14 +23,14 @@
 
 
 # # Test Script
-# from controller import controller
-# from microscope import Microscope
-# from autofocus import Amplitude, Phase, RamanSpectra
-# import os
+from core.controller import controller
+from core.microscope import microscope
+from core.autofocus import Amplitude, Phase
+import os
 # from time import sleep
 # # creating required directories
 # os.makedirs('Autofocus/images', exist_ok=True)
-# os.makedirs('images', exist_ok=True)
+os.makedirs('images', exist_ok=True)
 # os.makedirs('Stitches', exist_ok=True)
 # os.makedirs('Results', exist_ok=True)
 
@@ -38,22 +38,22 @@
 
 # ms = Microscope()
 
-# # ms.camera.set_option("Binning", "1x1")
-# # ms.camera.set_option("PixelType", "GREY8")
-# # ms.camera.set_option("ExposureAuto", "0")
-# ms.camera.set_exposure(15)
+microscope.camera.set_option("Binning", "1x1")
+microscope.camera.set_option("PixelType", "GREY8")
+microscope.camera.set_option("ExposureAuto", "0")
+microscope.camera.set_exposure(15)
 
-# # result = ms.auto_focus(strategy=Amplitude, start=1310, end=1350)
-# # print(result)
+# result = microscope.auto_focus(strategy=Amplitude, start=1310, end=1350)
+# print(result)
 
 
 
-# import matplotlib.pyplot as plt
-# import numpy as np
-# import tifffile as tiff
+import matplotlib.pyplot as plt
+import numpy as np
+import tifffile as tiff
 
-# for i in range(0, 10):
-#     img = ms.snap_image(i/10)
-#     pre_path = f"images/capture_{1+i}.tif"
-#     tiff.imwrite(pre_path, img)
+for i in range(0, 10):
+    img = microscope.snap_image(i/10)
+    pre_path = f"images/capture_{1+i}.tif"
+    tiff.imwrite(pre_path, img)
 

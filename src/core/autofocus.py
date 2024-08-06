@@ -8,6 +8,7 @@ from core.lamp import Lamp
 from core.stage import Stage
 
 from time import sleep
+from os import makedirs
 
 class Autofocus(ABC):
     def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="Autofocus"):
@@ -15,17 +16,24 @@ class Autofocus(ABC):
         self.lamp = lamp
         self.stage = stage
         self.image_dir = image_dir
+        self.focus_distance = None
+        self.focused_image = None
         self.captures = []
+        self.batch_variance = []
+        makedirs(f"{self.image_dir}/images", exist_ok=True)
+        makedirs(f"{self.image_dir}/spectra", exist_ok=True)
+        makedirs(f"{self.image_dir}/plots", exist_ok=True)
 
-    def zscan(self, start: int, end: int, step: float = 1) -> None:
-        self.start = start
-        self.end = end
-        self.step = step
+
+    def zscan(self, start: int, end: int, step: int = 1) -> None:
+        self.start = int(start)
+        self.end = int(end)
+        self.step = int(step)
         self.stage.move(z=self.start)
         self.lamp.set_on()
         sleep(1)
 
-        for i, z_val in enumerate(range(start-3, end, step)):
+        for i, z_val in enumerate(range(self.start-3, self.end, self.step)):
             try:
                 img = self.camera.capture()
                 if i <= 2: continue # discarding first 3 images for important reason !!!!
@@ -42,12 +50,11 @@ class Autofocus(ABC):
             self.stage.move(z=z_val)
             sleep(0.5)
 
-
         self.stage.move(z=start)
         self.lamp.set_off()
 
     @abstractmethod
-    def focus(self, start: int, end: int, step: float) -> float:
+    def focus(self, start: int, end: int, step: int) -> float:
         pass
 
 
@@ -55,7 +62,8 @@ class Amplitude(Autofocus):
     def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="Autofocus"):
         super().__init__(camera, stage, lamp, image_dir)
 
-    def focus(self, start: int, end: int, step: float) -> float:
+
+    def focus(self, start: int, end: int, step: int) -> float:
         self.zscan(start, end, step)
         print("zscan done")
         max_var, max_index, variances = -1, -1, []
@@ -74,14 +82,18 @@ class Amplitude(Autofocus):
             except Exception as e:
                 print(f"Error processing capture {i}: {e}")
 
-        return self.start + self.step * max_index
+        self.focus_distance = self.start + self.step * max_index
+        self.focused_image = f"{self.image_dir}/images/capture_{max_index+1}.tif"
+        print(self.focused_image)
+        self.batch_variance = variances
+        return self.focus_distance
 
 
 class Phase(Autofocus):
     def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="Autofocus"):
         super().__init__(camera, stage, lamp, image_dir)
 
-    def focus(self, start: int, end: int, step: float) -> float:
+    def focus(self, start: int, end: int, step: int) -> float:
         self.zscan(start, end, step)
         min_var, min_index, variances = 1e10, -1, []
 
@@ -103,10 +115,10 @@ class Phase(Autofocus):
 
 
 class Laser(Autofocus):
-    def focus(self, start: int, end: int, step: float) -> float:
+    def focus(self, start: int, end: int, step: int) -> float:
         pass
 
 
 class RamanSpectra(Autofocus):
-    def focus(self, start: int, end: int, step: float) -> float:
+    def focus(self, start: int, end: int, step: int) -> float:
         pass
