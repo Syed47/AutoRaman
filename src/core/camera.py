@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from core.controller import controller
 from time import sleep
 
+import matplotlib.pyplot as plt
+
 class ICamera(ABC):
     def __init__(self, camera:str):
         self.controller = controller
@@ -31,7 +33,6 @@ class Camera(ICamera):
     def capture(self) -> np.array:
         self.controller.snap_image()
         img = self.controller.get_image()
-
         byte_depth = self.controller.get_bytes_per_pixel()
 
         if byte_depth == 1:

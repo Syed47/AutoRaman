@@ -19,3 +19,14 @@ class Stage:
         
         self.controller.set_xy_position(self.xy_stage_device, self.x, self.y)
         self.controller.set_position(self.focus_device, self.z)
+
+    def moveby(self, x=None, y=None, z=None):
+        if x is not None:
+            self.x += x
+        if y is not None:
+            self.y += y
+        if z is not None:
+            self.z += z
+        
+        self.controller.set_xy_position(self.xy_stage_device, self.x, self.y)
+        self.controller.set_position(self.focus_device, self.z)

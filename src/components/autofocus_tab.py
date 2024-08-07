@@ -32,7 +32,7 @@ class AutofocusTab(Tab):
         line_label1.setStyleSheet("QLabel { border: none; font-size:16px; };")
         self.txt_start = QLineEdit(left_panel)
         self.txt_start.setPlaceholderText("1350 (μm)")
-        self.txt_start.setText("1350")
+        self.txt_start.setText("1330")
         self.txt_start.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_start.setGeometry(160, 20, 100, 40)
 
@@ -40,8 +40,8 @@ class AutofocusTab(Tab):
         line_label2.setGeometry(40, 80, 100, 40)
         line_label2.setStyleSheet("QLabel { border: none; font-size:16px; };")
         self.txt_end = QLineEdit(left_panel)
-        self.txt_end.setPlaceholderText("1400 (μm)")
-        self.txt_end.setText("1400")
+        self.txt_end.setPlaceholderText("1370 (μm)")
+        self.txt_end.setText("1370")
         self.txt_end.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_end.setGeometry(160, 80, 100, 40)
 

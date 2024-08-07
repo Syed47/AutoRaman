@@ -24,31 +24,32 @@ class Autofocus(ABC):
         makedirs(f"{self.image_dir}/spectra", exist_ok=True)
         makedirs(f"{self.image_dir}/plots", exist_ok=True)
 
-
     def zscan(self, start: int, end: int, step: int = 1) -> None:
         self.start = int(start)
         self.end = int(end)
         self.step = int(step)
         self.stage.move(z=self.start)
         self.lamp.set_on()
-        sleep(1)
+        sleep(2)
 
-        for i, z_val in enumerate(range(self.start-3, self.end, self.step)):
+        for i, z_val in enumerate(range(self.start - self.step * 5, self.end + self.step, self.step)):
             try:
                 img = self.camera.capture()
-                if i <= 2: continue # discarding first 3 images for important reason !!!!
+                self.stage.move(z=z_val+5)
+                sleep(1)
+                if i < 5: continue # discarding first 5 images for important reason !!!!
+                
                 if isinstance(self.camera, Camera):
-                    pre_path = f"{self.image_dir}/images/capture_{i-2}.tif"
+                    pre_path = f"{self.image_dir}/images/capture_{i-5}.tif"
                     tiff.imwrite(pre_path, img)
                     self.captures.append(pre_path)
                 elif isinstance(self.camera, SpectralCamera):
-                    pre_path = f"{self.image_dir}/spectra/capture_{i-2}.csv"
+                    pre_path = f"{self.image_dir}/spectra/capture_{i-5}.csv"
                     pd.write_csv(pre_path, img)
                     self.captures.append(pre_path)
+
             except Exception as e:
                 print(f"Error capturing at z={z_val}: {e}")
-            self.stage.move(z=z_val)
-            sleep(0.5)
 
         self.stage.move(z=start)
         self.lamp.set_off()
@@ -83,7 +84,7 @@ class Amplitude(Autofocus):
                 print(f"Error processing capture {i}: {e}")
 
         self.focus_distance = self.start + self.step * max_index
-        self.focused_image = f"{self.image_dir}/images/capture_{max_index+1}.tif"
+        self.focused_image = f"{self.image_dir}/images/capture_{max_index}.tif"
         print(self.focused_image)
         self.batch_variance = variances
         return self.focus_distance
@@ -111,8 +112,11 @@ class Phase(Autofocus):
             except Exception as e:
                 print(f"Error processing capture {i}: {e}")
 
-        return self.start + self.step * min_index
-
+        self.focus_distance = self.start + self.step * min_index
+        self.focused_image = f"{self.image_dir}/images/capture_{min_index}.tif"
+        print(self.focused_image)
+        self.batch_variance = variances
+        return self.focus_distance
 
 class Laser(Autofocus):
     def focus(self, start: int, end: int, step: int) -> float:

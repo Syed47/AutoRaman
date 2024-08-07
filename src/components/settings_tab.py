@@ -1,14 +1,29 @@
 from PyQt5.QtWidgets import QFileDialog, QWidget, QHBoxLayout, QGridLayout, QFrame, QSlider, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import Qt, QTimer
 
 from components.tab import Tab
+from core.microscope import microscope
+from core.controller import controller
+
+from time import sleep
 
 class SettingsTab(Tab):
     def __init__(self, logger=None):
         super().__init__(logger)
         self.init_ui()
         self.connect_signals()
+        self.islive = False
+        microscope.camera.set_option("PixelType", "GREY8")
+
+    def connect_signals(self):
+        self.btn_live.clicked.connect(self.live_preview)
+        self.btn_left.clicked.connect(lambda : microscope.move_stage(x=-100))
+        self.btn_right.clicked.connect(lambda : microscope.move_stage(x=100))
+        self.btn_up.clicked.connect(lambda : microscope.move_stage(y=-100))
+        self.btn_down.clicked.connect(lambda : microscope.move_stage(y=100))
+        self.btn_zoom_in.clicked.connect(lambda : microscope.move_stage(z=-100))
+        self.btn_zoom_out.clicked.connect(lambda : microscope.move_stage(z=100))
 
     def init_ui(self):
         tab_layout = QHBoxLayout()
@@ -89,12 +104,12 @@ class SettingsTab(Tab):
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
 
         self.image = QPixmap("image_2.tif")
-        image_label1 = QLabel(right_panel)
-        image_label1.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
-        image_label1.setPixmap(self.image)
-        image_label1.setFixedSize(420, 280)
-        image_label1.setGeometry(6, 10, 420, 280)
-        image_label1.setScaledContents(True)
+        self.live_image = QLabel(right_panel)
+        self.live_image.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        self.live_image.setPixmap(self.image)
+        self.live_image.setFixedSize(420, 280)
+        self.live_image.setGeometry(6, 10, 420, 280)
+        self.live_image.setScaledContents(True)
 
         line_separator2 = QFrame(right_panel)
         line_separator2.setGeometry(0, 300, 440, 1)
@@ -186,8 +201,8 @@ class SettingsTab(Tab):
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
 
-        self.btn_capture = QPushButton("Capture", right_panel)
-        self.btn_capture.setGeometry(75, 490, 280, 40)
+        self.btn_live = QPushButton("Live Preview", right_panel)
+        self.btn_live.setGeometry(75, 490, 280, 40)
 
         frame_tab_layout.addWidget(left_panel)
         frame_tab_layout.addWidget(right_panel)
@@ -202,16 +217,39 @@ class SettingsTab(Tab):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Configuration File", "", "Config Files (*.cfg);;All Files (*)", options=options)
         if file_name:
             self.config_file_path.setText(file_name)
-    
-    def connect_signals(self):
-        self.btn_capture.clicked.connect(self.apply_settings)
-        self.btn_left.clicked.connect(lambda : self.logger.log("direction applied"))
-        self.btn_right.clicked.connect(lambda : self.logger.log("direction applied"))
-        self.btn_up.clicked.connect(lambda : self.logger.log("direction applied"))
-        self.btn_down.clicked.connect(lambda : self.logger.log("direction applied"))
-        self.btn_zoom_in.clicked.connect(lambda : self.logger.log("direction applied"))
-        self.btn_zoom_out.clicked.connect(lambda : self.logger.log("direction applied"))
 
-    def apply_settings(self):
-        self.logger.log("image captured")
-        return
+    def live_preview(self):
+        if self.islive:
+            microscope.lamp.set_off()
+            controller.stop_sequence_acquisition()
+            self.islive = False
+            self.btn_live.setText("Start Live")
+            self.logger.log("live preview stoped")
+        else:
+            microscope.lamp.set_on()
+            self.btn_live.setText("Stop Live")
+            self.logger.log("live preview started")
+
+            self.islive = True
+            controller.start_continuous_sequence_acquisition(0)
+
+            self.timer = QTimer(self)
+            self.timer.timeout.connect(self.update_image)
+            self.timer.start(100)
+
+    def update_image(self):
+        try:
+            remaining_images = controller.get_remaining_image_count()
+            if remaining_images > 0:
+                tagged_image = controller.get_last_tagged_image()
+                image = tagged_image.pix.reshape(tagged_image.tags['Height'], tagged_image.tags['Width'])
+                qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
+                pixmap = QPixmap.fromImage(qimage)
+                self.live_image.setPixmap(pixmap)
+            else:
+                print("Circular buffer is empty, waiting for images...")
+                sleep(0.1)
+
+        except Exception as e:
+            print(f"Error retrieving image: {e}")
+            sleep(0.5)

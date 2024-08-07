@@ -51,9 +51,20 @@ microscope.camera.set_exposure(15)
 import matplotlib.pyplot as plt
 import numpy as np
 import tifffile as tiff
+import time
 
-for i in range(0, 10):
-    img = microscope.snap_image(i/10)
-    pre_path = f"images/capture_{1+i}.tif"
-    tiff.imwrite(pre_path, img)
+img = microscope.snap_image(delay=0)
+time.sleep(2)
+pre_path = f"images/capture_{1}.tif"
+tiff.imwrite(pre_path, img)
+
+
+for m in dir(controller):
+    print(m)
+
+
+# for i in range(0, 10):
+#     img = microscope.snap_image(i/5)
+#     pre_path = f"images/capture_{1+i}.tif"
+#     tiff.imwrite(pre_path, img)
 
