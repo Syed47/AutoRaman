@@ -11,6 +11,12 @@ class LaserTab(Tab):
         self.init_ui()
         self.connect_signals()
 
+    def preprocess(self):
+        pass
+
+    def postprocess(self):
+        pass
+
     def init_ui(self):
         tab_layout = QHBoxLayout()
         

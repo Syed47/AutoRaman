@@ -2,8 +2,8 @@ from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QTabWidget
 
 from components.log_console import LogConsole
 from components.settings_tab import SettingsTab
-# from components.autofocus_tab import AutofocusTab
-# from components.laser_tab import LaserTab
+from components.autofocus_tab import AutofocusTab
+from components.laser_tab import LaserTab
 # from components.cells_tab import CellsTab
 # from components.spectra_tab import SpectraTab
 # from components.repeat_tab import RepeatTab
@@ -13,7 +13,6 @@ from components.style import StyleSheet
 import sys
 
 
-from core.lamp import Lamp
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -35,11 +34,11 @@ class MainWindow(QWidget):
         self.settings_tab = SettingsTab(self.logger)
         tab_widget.addTab(self.settings_tab, 'Settings')
 
-        # self.autofocus_tab = AutofocusTab(self.logger)
-        # tab_widget.addTab(self.autofocus_tab, 'Autofocus')
+        self.autofocus_tab = AutofocusTab(self.logger)
+        tab_widget.addTab(self.autofocus_tab, 'Autofocus')
 
-        # self.laser_tab = LaserTab(self.logger)
-        # tab_widget.addTab(self.laser_tab, 'Laser')
+        self.laser_tab = LaserTab(self.logger)
+        tab_widget.addTab(self.laser_tab, 'Laser')
 
         # self.cells_tab = CellsTab(self.logger)
         # tab_widget.addTab(self.cells_tab, 'Cells')

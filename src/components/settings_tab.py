@@ -6,17 +6,44 @@ from components.tab import Tab
 from core.microscope import microscope
 from core.controller import controller
 
+from numpy import max
 from time import sleep
+
+import cv2
 
 class SettingsTab(Tab):
     def __init__(self, logger=None):
         super().__init__(logger)
+        self.preprocess()
+        self.init_ui()
+        self.connect_signals()
+
+    def __del__(self):
+        self.postprocess()
+
+    def preprocess(self):
         self.islive = False
         self.xstep = 100
         self.ystep = 100
         self.zstep = 10
-        self.init_ui()
-        self.connect_signals()
+        self.binning = "1x1"
+        self.pixel_type = "GREY8"
+        self.filter_position = controller.get_property("FilterCube", "Label")
+        self.exposure = 15
+        self.lamp_voltage = 11
+        self.lamp_switch = False
+        self.auto_exposure = False
+        self.inverted_image = False
+
+        microscope.lamp.set_off()
+        microscope.camera.set_option("Binning", self.binning)
+        microscope.camera.set_option("PixelType", self.pixel_type)
+        microscope.camera.set_exposure(self.exposure)
+        microscope.camera.set_option("ExposureAuto", "1" if self.auto_exposure else "0")
+        controller.set_property("TransmittedLamp", "Voltage", self.lamp_voltage)
+
+    def postprocess(self):
+        self.stop_live_view()
 
     def connect_signals(self):
         self.btn_live.clicked.connect(self.live_preview)
@@ -26,6 +53,53 @@ class SettingsTab(Tab):
         self.btn_down.clicked.connect(lambda : microscope.move_stage(y=self.ystep))
         self.btn_zoom_in.clicked.connect(lambda : microscope.move_stage(z=-self.zstep))
         self.btn_zoom_out.clicked.connect(lambda : microscope.move_stage(z=self.zstep))
+
+        self.config_browse_button.clicked.connect(self.browse_config_file)
+
+        self.slider_exposure.valueChanged.connect(self.change_exposure)
+        self.txt_exposure_value.textChanged.connect(lambda text: self.slider_exposure.setValue(int(text)) if text.isdigit() else None)
+
+        self.slider_lamp_voltage.valueChanged.connect(self.change_lamp_voltage)
+        self.txt_lamp_voltage_value.textChanged.connect(lambda text: self.slider_lamp_voltage.setValue(int(text)) if text.isdigit() else None)
+        
+        self.cmb_binning.currentIndexChanged.connect(self.set_binning)
+        self.cmd_pixel_type.currentIndexChanged.connect(self.set_pixel_type)
+        self.cmb_filter_position.currentIndexChanged.connect(self.set_filter_position)
+
+        self.checkbox_lamp_switch.stateChanged.connect(self.handle_lamp_switch)
+        self.checkbox_auto_exposure.stateChanged.connect(self.handle_auto_exposure)
+        self.checkbox_inverted_image.stateChanged.connect(self.handle_inverted_image)
+
+        self.txt_move_x.textChanged.connect(
+            lambda value: setattr(self, 'xstep', int(value) if value and int(value) <= 200 else 200)
+        )
+        self.txt_move_y.textChanged.connect(
+            lambda value: setattr(self, 'ystep', int(value) if value and int(value) <= 200 else 200)
+        )
+        self.txt_move_z.textChanged.connect(
+            lambda value: setattr(self, 'zstep', int(value) if value and int(value) <= 200 else 200)
+        )
+
+    def handle_lamp_switch(self):
+        self.lamp_switch = self.checkbox_lamp_switch.isChecked()
+        if self.lamp_switch:
+            microscope.lamp.set_on()
+        else:
+            microscope.lamp.set_off()
+
+    def handle_auto_exposure(self):
+        self.auto_exposure = self.checkbox_auto_exposure.isChecked()
+        if self.auto_exposure:
+            microscope.camera.set_option("ExposureAuto", "1")
+            self.slider_exposure.setEnabled(False) 
+            self.txt_exposure_value.setEnabled(False)
+        else:
+            microscope.camera.set_option("ExposureAuto", "0")
+            self.slider_exposure.setEnabled(True) 
+            self.txt_exposure_value.setEnabled(True)
+
+    def handle_inverted_image(self):
+        self.inverted_image = self.checkbox_inverted_image.isChecked()
 
     def init_ui(self):
         tab_layout = QHBoxLayout()
@@ -44,7 +118,6 @@ class SettingsTab(Tab):
         self.config_file_path.setGeometry(20, 20, 180, 40)
         self.config_browse_button = QPushButton("Browse", left_panel)
         self.config_browse_button.setGeometry(220, 20, 80, 40)
-        self.config_browse_button.clicked.connect(self.browse_config_file)
 
         line_separator = QFrame(left_panel)
         line_separator.setGeometry(0, 80, 400, 1)
@@ -59,7 +132,6 @@ class SettingsTab(Tab):
         self.cmb_binning.addItems(["1x1", "2x2", "4x4"])
         self.cmb_binning.setStyleSheet("QComboBox { font-size:16px; };")
         self.cmb_binning.setGeometry(160, 100, 100, 40)
-        self.cmb_binning.currentIndexChanged.connect(lambda: self.set_binning())
 
         line_label2 = QLabel("Pixel Type:", left_panel)
         line_label2.setGeometry(40, 160, 100, 40)
@@ -69,7 +141,6 @@ class SettingsTab(Tab):
         self.cmd_pixel_type.addItems(["GREY8", "RGB32"])
         self.cmd_pixel_type.setStyleSheet("QComboBox { font-size:16px; };")
         self.cmd_pixel_type.setGeometry(160, 160, 100, 40)
-        self.cmd_pixel_type.currentIndexChanged.connect(lambda: self.set_pixel_type())
 
         line_label3 = QLabel("Filter Position:", left_panel)
         line_label3.setGeometry(40, 220, 100, 40)
@@ -79,7 +150,6 @@ class SettingsTab(Tab):
         self.cmb_filter_position.addItems(["Position-1", "Position-2", "Position-3", "Position-4", "Position-5", "Position-6"])
         self.cmb_filter_position.setStyleSheet("QComboBox { font-size:16px; };")
         self.cmb_filter_position.setGeometry(160, 220, 100, 40)
-        self.cmb_filter_position.currentIndexChanged.connect(lambda: self.set_filter_position())
 
         line_separator = QFrame(left_panel)
         line_separator.setGeometry(0, 280, 400, 1)
@@ -94,18 +164,15 @@ class SettingsTab(Tab):
         self.slider_exposure = QSlider(Qt.Horizontal, left_panel)
         self.slider_exposure.setGeometry(130, 300, 100, 40)
         self.slider_exposure.setMinimum(0)
-        self.slider_exposure.setMaximum(100)
-        self.slider_exposure.setValue(15)
+        self.slider_exposure.setMaximum(2000)
+        self.slider_exposure.setValue(50)
         self.slider_exposure.setTickPosition(QSlider.TicksBelow)  
-        self.slider_exposure.setTickInterval(5)
+        self.slider_exposure.setTickInterval(50)
 
         self.txt_exposure_value = QLineEdit(left_panel)
         self.txt_exposure_value.setText("15")
         self.txt_exposure_value.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_exposure_value.setGeometry(250, 300, 60, 40)
-
-        self.slider_exposure.valueChanged.connect(lambda value: self.txt_exposure_value.setText(str(value)))
-        self.txt_exposure_value.textChanged.connect(lambda text: self.slider_exposure.setValue(int(text)) if text.isdigit() else None)
 
         label_lamp_voltage = QLabel("Lamp Voltage", left_panel)
         label_lamp_voltage.setGeometry(20, 350, 100, 40)
@@ -124,9 +191,6 @@ class SettingsTab(Tab):
         self.txt_lamp_voltage_value.setText("11")
         self.txt_lamp_voltage_value.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_lamp_voltage_value.setGeometry(250, 350, 60, 40)
-
-        self.slider_lamp_voltage.valueChanged.connect(lambda value: self.txt_lamp_voltage_value.setText(str(value)))
-        self.txt_lamp_voltage_value.textChanged.connect(lambda text: self.slider_lamp_voltage.setValue(int(text)) if text.isdigit() else None)
 
         line_separator2 = QFrame(left_panel)
         line_separator2.setGeometry(0, 420, 400, 1)
@@ -159,10 +223,6 @@ class SettingsTab(Tab):
         self.txt_move_x.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_move_x.setGeometry(130, 310, 60, 40)
 
-        self.txt_move_x.textChanged.connect(
-            lambda text: setattr(self, 'xstep', text if text and int(text) <= 200 else 100)
-        )
-
         label_y = QLabel("Y step (μm):", right_panel)
         label_y.setGeometry(20, 355, 90, 40)
         label_y.setStyleSheet("QLabel { border: none; font-size:16px; };")
@@ -172,10 +232,6 @@ class SettingsTab(Tab):
         self.txt_move_y.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_move_y.setGeometry(130, 355, 60, 40)
 
-        self.txt_move_y.textChanged.connect(
-            lambda text: setattr(self, 'ystep', text if text and int(text) <= 200 else 100)
-        )
-
         label_z = QLabel("Z step (μm):", right_panel)
         label_z.setGeometry(20, 400, 90, 40)
         label_z.setStyleSheet("QLabel { border: none; font-size:16px; };")
@@ -184,10 +240,6 @@ class SettingsTab(Tab):
         self.txt_move_z.setText(str(self.zstep))
         self.txt_move_z.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_move_z.setGeometry(130, 400, 60, 40)
-
-        self.txt_move_z.textChanged.connect(
-            lambda text: setattr(self, 'zstep', text if text and int(text) <= 200 else 100)
-        )
 
         self.checkbox_lamp_switch = QCheckBox("Lamp", right_panel)
         self.checkbox_lamp_switch.setGeometry(10, 450, 180, 40)
@@ -218,9 +270,9 @@ class SettingsTab(Tab):
         self.btn_left.setFixedSize(40, 40)
         self.btn_right = QPushButton("►", right_panel)
         self.btn_right.setFixedSize(40, 40)
-        self.btn_zoom_in = QPushButton("➕", right_panel)
+        self.btn_zoom_in = QPushButton("+", right_panel)
         self.btn_zoom_in.setFixedSize(40, 40)
-        self.btn_zoom_out = QPushButton("➖", right_panel)
+        self.btn_zoom_out = QPushButton("-", right_panel)
         self.btn_zoom_out.setFixedSize(40, 40)
 
         label_z = QLabel("   Z", right_panel)
@@ -266,43 +318,79 @@ class SettingsTab(Tab):
         if file_name:
             self.config_file_path.setText(file_name)
 
+    def change_exposure(self, value):
+        if value < 0 or value > 2000:
+            self.logger.log("Error: Exposure must be between 0 and 2000")
+            return
+        self.exposure = value
+        self.txt_exposure_value.setText(str(self.exposure))
+        microscope.camera.set_exposure(self.exposure)
+        print(self.exposure)
+
+    def change_lamp_voltage(self, value):
+        if value < 0 or value > 12:
+            self.logger.log("Error: lamp_voltage must be between 0 and 12")
+            return
+        self.lamp_voltage = value
+        self.txt_lamp_voltage_value.setText(str(self.lamp_voltage))
+        controller.set_property("TransmittedLamp", "Voltage", self.lamp_voltage)
+        print(self.lamp_voltage)
+
     def set_binning(self):
         self.binning = self.cmb_binning.currentText()
+        print(self.binning)
         microscope.camera.set_option("Binning", self.binning)
-        
 
     def set_pixel_type(self):
         self.pixel_type = self.cmd_pixel_type.currentText()
+        print(self.pixel_type)
         microscope.camera.set_option("PixelType", self.pixel_type)
 
     def set_filter_position(self):
         self.filter_position = self.cmb_filter_position.currentText()
+        controller.set_property("FilterCube", "Label", self.filter_position);
+        print(self.filter_position)
 
     def live_preview(self):
         if self.islive:
-            microscope.lamp.set_off()
-            controller.stop_sequence_acquisition()
-            self.islive = False
-            self.btn_live.setText("Start Live")
-            self.logger.log("live preview stoped")
+            self.stop_live_view()
         else:
-            microscope.lamp.set_on()
-            self.btn_live.setText("Stop Live")
-            self.logger.log("live preview started")
+            self.start_live_view()
 
-            self.islive = True
-            controller.start_continuous_sequence_acquisition(0)
+    def start_live_view(self):
+        self.btn_live.setText("Stop Live")
+        self.btn_live.setStyleSheet("background-color: #F44336;")
+        self.logger.log("live preview started")
+        self.islive = True
+        controller.start_continuous_sequence_acquisition(0)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_image)
+        self.timer.start(100)
 
-            self.timer = QTimer(self)
-            self.timer.timeout.connect(self.update_image)
-            self.timer.start(100)
+    def stop_live_view(self):
+        controller.stop_sequence_acquisition()
+        self.islive = False
+        self.btn_live.setText("Start Live")
+        self.btn_live.setStyleSheet("background-color: #4CAF50;")
+        self.timer.stop()
+        self.logger.log("live preview stopped")
 
     def update_image(self):
         try:
             remaining_images = controller.get_remaining_image_count()
             if remaining_images > 0:
                 tagged_image = controller.get_last_tagged_image()
-                image = tagged_image.pix.reshape(tagged_image.tags['Height'], tagged_image.tags['Width'])
+                image = None
+                
+                if self.pixel_type == "GREY8":
+                    image = tagged_image.pix.reshape(tagged_image.tags['Height'], tagged_image.tags['Width'])
+                elif self.pixel_type == 'RGB32':
+                    image = tagged_image.pix.reshape(3072, 4096)
+                    image = cv2.resize(image, (tagged_image.tags['Height'], tagged_image.tags['Width'])) 
+
+                if self.inverted_image:
+                    image = max(image) - image
+
                 qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
                 pixmap = QPixmap.fromImage(qimage)
                 self.live_image.setPixmap(pixmap)

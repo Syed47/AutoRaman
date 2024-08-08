@@ -13,20 +13,20 @@ class Tab(QWidget, ABC, metaclass=QWidgetABCMeta):
         self.setStyleSheet(StyleSheet)
 
     @abstractmethod
+    def preprocess(self):
+        pass
+
+    @abstractmethod
+    def postprocess(self):
+        pass
+
+    @abstractmethod
     def init_ui(self):
         pass
 
     @abstractmethod
     def connect_signals(self):
         pass
-
-    # @abstractmethod
-    # def preprocess(self):
-    #     pass
-
-    # @abstractmethod
-    # def postprocess(self):
-    #     pass
 
 
 

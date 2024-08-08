@@ -15,6 +15,9 @@ class ICamera(ABC):
     def set_option(self, option:str = None, value:str = None):
         self.controller.set_property(self.camera, option, value)
 
+    def get_property(self, option:str = None, value:str = None):
+        self.controller.set_property(self.camera, option, value)
+
     def set_exposure(self, val:int = 15):
         self.controller.set_exposure(val)
 
