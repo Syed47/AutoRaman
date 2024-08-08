@@ -55,7 +55,7 @@ class Controller(Core):
 
 # To be used throughout the program
 
-controller = Controller(config_file="IX81_LUDL_amscope_Laser532", headless=True)
-# controller = Controller(config_file="MMConfig_demo", headless=True)
+# controller = Controller(config_file="IX81_LUDL_amscope_Laser532", headless=True)
+controller = Controller(config_file="MMConfig_demo", headless=True)
 
 __all__ = ['controller']

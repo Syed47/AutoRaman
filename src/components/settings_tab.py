@@ -11,19 +11,21 @@ from time import sleep
 class SettingsTab(Tab):
     def __init__(self, logger=None):
         super().__init__(logger)
+        self.islive = False
+        self.xstep = 100
+        self.ystep = 100
+        self.zstep = 10
         self.init_ui()
         self.connect_signals()
-        self.islive = False
-        microscope.camera.set_option("PixelType", "GREY8")
 
     def connect_signals(self):
         self.btn_live.clicked.connect(self.live_preview)
-        self.btn_left.clicked.connect(lambda : microscope.move_stage(x=-100))
-        self.btn_right.clicked.connect(lambda : microscope.move_stage(x=100))
-        self.btn_up.clicked.connect(lambda : microscope.move_stage(y=-100))
-        self.btn_down.clicked.connect(lambda : microscope.move_stage(y=100))
-        self.btn_zoom_in.clicked.connect(lambda : microscope.move_stage(z=-100))
-        self.btn_zoom_out.clicked.connect(lambda : microscope.move_stage(z=100))
+        self.btn_left.clicked.connect(lambda : microscope.move_stage(x=-self.xstep))
+        self.btn_right.clicked.connect(lambda : microscope.move_stage(x=self.xstep))
+        self.btn_up.clicked.connect(lambda : microscope.move_stage(y=-self.ystep))
+        self.btn_down.clicked.connect(lambda : microscope.move_stage(y=self.ystep))
+        self.btn_zoom_in.clicked.connect(lambda : microscope.move_stage(z=-self.zstep))
+        self.btn_zoom_out.clicked.connect(lambda : microscope.move_stage(z=self.zstep))
 
     def init_ui(self):
         tab_layout = QHBoxLayout()
@@ -52,47 +54,79 @@ class SettingsTab(Tab):
         line_label1 = QLabel("Binning:", left_panel)
         line_label1.setGeometry(40, 100, 100, 40)
         line_label1.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
         self.cmb_binning = QComboBox(left_panel)
         self.cmb_binning.addItems(["1x1", "2x2", "4x4"])
         self.cmb_binning.setStyleSheet("QComboBox { font-size:16px; };")
         self.cmb_binning.setGeometry(160, 100, 100, 40)
+        self.cmb_binning.currentIndexChanged.connect(lambda: self.set_binning())
 
         line_label2 = QLabel("Pixel Type:", left_panel)
         line_label2.setGeometry(40, 160, 100, 40)
         line_label2.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
         self.cmd_pixel_type = QComboBox(left_panel)
         self.cmd_pixel_type.addItems(["GREY8", "RGB32"])
         self.cmd_pixel_type.setStyleSheet("QComboBox { font-size:16px; };")
         self.cmd_pixel_type.setGeometry(160, 160, 100, 40)
+        self.cmd_pixel_type.currentIndexChanged.connect(lambda: self.set_pixel_type())
 
         line_label3 = QLabel("Filter Position:", left_panel)
         line_label3.setGeometry(40, 220, 100, 40)
         line_label3.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
         self.cmb_filter_position = QComboBox(left_panel)
         self.cmb_filter_position.addItems(["Position-1", "Position-2", "Position-3", "Position-4", "Position-5", "Position-6"])
         self.cmb_filter_position.setStyleSheet("QComboBox { font-size:16px; };")
         self.cmb_filter_position.setGeometry(160, 220, 100, 40)
+        self.cmb_filter_position.currentIndexChanged.connect(lambda: self.set_filter_position())
 
         line_separator = QFrame(left_panel)
         line_separator.setGeometry(0, 280, 400, 1)
         line_separator.setFrameShape(QFrame.HLine)
         line_separator.setFrameShadow(QFrame.Sunken)
 
-        line_label3 = QLabel("Exposure:", left_panel)
-        line_label3.setGeometry(40, 300, 100, 40)
-        line_label3.setStyleSheet("QLabel { border: none; font-size:16px; };")
-        self.txt_exposure = QLineEdit(left_panel)
-        self.txt_exposure.setPlaceholderText("15")
-        self.txt_exposure.setStyleSheet("QLineEdit { font-size:16px; };")
-        self.txt_exposure.setGeometry(160, 300, 100, 40)
+        label_exposure = QLabel("Exposure", left_panel)
+        label_exposure.setGeometry(5, 300, 100, 40)
+        label_exposure.setAlignment(Qt.AlignCenter)
+        label_exposure.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
-        line_label3 = QLabel("Z-Start:", left_panel)
-        line_label3.setGeometry(40, 360, 100, 40)
-        line_label3.setStyleSheet("QLabel { border: none; font-size:16px; };")
-        self.txt_zstart = QLineEdit(left_panel)
-        self.txt_zstart.setPlaceholderText("15")
-        self.txt_zstart.setStyleSheet("QLineEdit { font-size:16px; };")
-        self.txt_zstart.setGeometry(160, 360, 100, 40)
+        self.slider_exposure = QSlider(Qt.Horizontal, left_panel)
+        self.slider_exposure.setGeometry(130, 300, 100, 40)
+        self.slider_exposure.setMinimum(0)
+        self.slider_exposure.setMaximum(100)
+        self.slider_exposure.setValue(15)
+        self.slider_exposure.setTickPosition(QSlider.TicksBelow)  
+        self.slider_exposure.setTickInterval(5)
+
+        self.txt_exposure_value = QLineEdit(left_panel)
+        self.txt_exposure_value.setText("15")
+        self.txt_exposure_value.setStyleSheet("QLineEdit { font-size:16px; };")
+        self.txt_exposure_value.setGeometry(250, 300, 60, 40)
+
+        self.slider_exposure.valueChanged.connect(lambda value: self.txt_exposure_value.setText(str(value)))
+        self.txt_exposure_value.textChanged.connect(lambda text: self.slider_exposure.setValue(int(text)) if text.isdigit() else None)
+
+        label_lamp_voltage = QLabel("Lamp Voltage", left_panel)
+        label_lamp_voltage.setGeometry(20, 350, 100, 40)
+        label_lamp_voltage.setAlignment(Qt.AlignCenter)
+        label_lamp_voltage.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
+        self.slider_lamp_voltage = QSlider(Qt.Horizontal, left_panel)
+        self.slider_lamp_voltage.setGeometry(130, 350, 100, 40)
+        self.slider_lamp_voltage.setMinimum(0)
+        self.slider_lamp_voltage.setMaximum(12)
+        self.slider_lamp_voltage.setValue(11)
+        self.slider_lamp_voltage.setTickPosition(QSlider.TicksBelow)  
+        self.slider_lamp_voltage.setTickInterval(1)
+
+        self.txt_lamp_voltage_value = QLineEdit(left_panel)
+        self.txt_lamp_voltage_value.setText("11")
+        self.txt_lamp_voltage_value.setStyleSheet("QLineEdit { font-size:16px; };")
+        self.txt_lamp_voltage_value.setGeometry(250, 350, 60, 40)
+
+        self.slider_lamp_voltage.valueChanged.connect(lambda value: self.txt_lamp_voltage_value.setText(str(value)))
+        self.txt_lamp_voltage_value.textChanged.connect(lambda text: self.slider_lamp_voltage.setValue(int(text)) if text.isdigit() else None)
 
         line_separator2 = QFrame(left_panel)
         line_separator2.setGeometry(0, 420, 400, 1)
@@ -114,6 +148,62 @@ class SettingsTab(Tab):
         line_separator2 = QFrame(right_panel)
         line_separator2.setGeometry(0, 300, 440, 1)
         line_separator2.setFrameShape(QFrame.HLine)
+        line_separator2.setFrameShadow(QFrame.Sunken)
+
+        label_x = QLabel("X step (μm):", right_panel)
+        label_x.setGeometry(20, 310, 90, 40)
+        label_x.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
+        self.txt_move_x = QLineEdit(right_panel)
+        self.txt_move_x.setText(str(self.xstep))
+        self.txt_move_x.setStyleSheet("QLineEdit { font-size:16px; };")
+        self.txt_move_x.setGeometry(130, 310, 60, 40)
+
+        self.txt_move_x.textChanged.connect(
+            lambda text: setattr(self, 'xstep', text if text and int(text) <= 200 else 100)
+        )
+
+        label_y = QLabel("Y step (μm):", right_panel)
+        label_y.setGeometry(20, 355, 90, 40)
+        label_y.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
+        self.txt_move_y = QLineEdit(right_panel)
+        self.txt_move_y.setText(str(self.ystep))
+        self.txt_move_y.setStyleSheet("QLineEdit { font-size:16px; };")
+        self.txt_move_y.setGeometry(130, 355, 60, 40)
+
+        self.txt_move_y.textChanged.connect(
+            lambda text: setattr(self, 'ystep', text if text and int(text) <= 200 else 100)
+        )
+
+        label_z = QLabel("Z step (μm):", right_panel)
+        label_z.setGeometry(20, 400, 90, 40)
+        label_z.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
+        self.txt_move_z = QLineEdit(right_panel)
+        self.txt_move_z.setText(str(self.zstep))
+        self.txt_move_z.setStyleSheet("QLineEdit { font-size:16px; };")
+        self.txt_move_z.setGeometry(130, 400, 60, 40)
+
+        self.txt_move_z.textChanged.connect(
+            lambda text: setattr(self, 'zstep', text if text and int(text) <= 200 else 100)
+        )
+
+        self.checkbox_lamp_switch = QCheckBox("Lamp", right_panel)
+        self.checkbox_lamp_switch.setGeometry(10, 450, 180, 40)
+        # self.checkbox_auto_exposure.setStyleSheet("border: 1px solid #444444;")
+
+        self.checkbox_auto_exposure = QCheckBox("Auto-Exposure", right_panel)
+        self.checkbox_auto_exposure.setGeometry(10, 480, 180, 40)
+        # self.checkbox_auto_exposure.setStyleSheet("border: 1px solid #444444;")
+
+        self.checkbox_inverted_image = QCheckBox("Inverted Image", right_panel)
+        self.checkbox_inverted_image.setGeometry(10, 510, 180, 40)
+        # self.checkbox_inverted.setStyleSheet("border: 1px solid #444444;")s
+
+        line_separator2 = QFrame(right_panel)
+        line_separator2.setGeometry(200, 300, 1, 400)
+        line_separator2.setFrameShape(QFrame.VLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
 
         button_layout = QGridLayout()
@@ -156,53 +246,11 @@ class SettingsTab(Tab):
 
         button_layout_widget = QWidget(right_panel)
         button_layout_widget.setLayout(button_layout)
-        button_layout_widget.setGeometry(200, 310, 220, 140)
-        button_layout_widget.setStyleSheet(""" QWidget { border: 1px solid #444444; } QPushButton { border: none; }""")
-
-        self.checkbox_aut_exposure = QCheckBox("Auto-Exposure", right_panel)
-        self.checkbox_aut_exposure.setGeometry(10, 310, 180, 40)
-        # self.checkbox_aut_exposure.setStyleSheet("border: 1px solid #444444;")
-
-        # self.checkbox_inverted = QCheckBox("Inverted Image", right_panel)
-        # self.checkbox_inverted.setGeometry(10, 360, 180, 40)
-        # self.checkbox_inverted.setStyleSheet("border: 1px solid #444444;")
-
-        label = QLabel("Exposure", right_panel)
-        label.setGeometry(15, 360, 80, 40)
-        label.setAlignment(Qt.AlignCenter)
-        label.setStyleSheet("QLabel { border: none; font-size:16px; };")
-
-        self.slider = QSlider(Qt.Horizontal, right_panel)
-        self.slider.setGeometry(100, 360, 80, 40)
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(10)
-        self.slider.setValue(0)
-        self.slider.setTickPosition(QSlider.TicksBelow)  
-        self.slider.setTickInterval(10) 
-
-        # self.checkbox_lamp = QCheckBox("Lamp", right_panel)
-        # self.checkbox_lamp.setGeometry(10, 410, 180, 40)
-        # self.checkbox_lamp.setStyleSheet("border: 1px solid #444444;")
-        label = QLabel("Lamp", right_panel)
-        label.setGeometry(2, 410, 80, 40)
-        label.setAlignment(Qt.AlignCenter)
-        label.setStyleSheet("QLabel { border: none; font-size:16px; };")
-
-        self.slider = QSlider(Qt.Horizontal, right_panel)
-        self.slider.setGeometry(100, 410, 80, 40)
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(10)
-        self.slider.setValue(0)
-        self.slider.setTickPosition(QSlider.TicksBelow)  
-        self.slider.setTickInterval(10) 
-
-        line_separator2 = QFrame(right_panel)
-        line_separator2.setGeometry(0, 460, 440, 1)
-        line_separator2.setFrameShape(QFrame.HLine)
-        line_separator2.setFrameShadow(QFrame.Sunken)
+        button_layout_widget.setGeometry(205, 320, 220, 130)
+        # button_layout_widget.setStyleSheet(""" QWidget { border: 1px solid #444444; } QPushButton { border: none; }""")
 
         self.btn_live = QPushButton("Live Preview", right_panel)
-        self.btn_live.setGeometry(75, 490, 280, 40)
+        self.btn_live.setGeometry(245, 490, 140, 40)
 
         frame_tab_layout.addWidget(left_panel)
         frame_tab_layout.addWidget(right_panel)
@@ -217,6 +265,18 @@ class SettingsTab(Tab):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Configuration File", "", "Config Files (*.cfg);;All Files (*)", options=options)
         if file_name:
             self.config_file_path.setText(file_name)
+
+    def set_binning(self):
+        self.binning = self.cmb_binning.currentText()
+        microscope.camera.set_option("Binning", self.binning)
+        
+
+    def set_pixel_type(self):
+        self.pixel_type = self.cmd_pixel_type.currentText()
+        microscope.camera.set_option("PixelType", self.pixel_type)
+
+    def set_filter_position(self):
+        self.filter_position = self.cmb_filter_position.currentText()
 
     def live_preview(self):
         if self.islive:
