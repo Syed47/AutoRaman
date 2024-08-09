@@ -2,7 +2,9 @@ from PyQt5.QtWidgets import QHBoxLayout, QFrame, QLabel, QCheckBox, QLineEdit, Q
 from PyQt5.QtGui import QPixmap
 
 from components.tab import Tab
+from core.controller import controller
 from core.microscope import microscope
+import matplotlib.pyplot as plt
 from core.autofocus import Autofocus, Laser
 
 class LaserTab(Tab):
@@ -12,10 +14,12 @@ class LaserTab(Tab):
         self.connect_signals()
 
     def preprocess(self):
-        pass
+        microscope.lamp.set_on()
+        controller.set_serial_port_command("COM4", "CURRENT=40", "\r\n");
 
     def postprocess(self):
-        pass
+        microscope.lamp.set_off()
+        controller.set_serial_port_command("COM4", "CURRENT=0", "\r\n");
 
     def init_ui(self):
         tab_layout = QHBoxLayout()
@@ -121,10 +125,10 @@ class LaserTab(Tab):
         self.img_bf.setGeometry(20, 5, 380, 260)
         self.img_bf.setScaledContents(True)
 
-        self.plot_var = QPixmap("components/bar.png")
+        self.plot_intensity_score = QPixmap("components/bar.png")
         self.img_var = QLabel(right_panel)
         self.img_var.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
-        self.img_var.setPixmap(self.plot_var)
+        self.img_var.setPixmap(self.plot_intensity_score)
         self.img_var.setFixedSize(380, 260)
         self.img_var.setGeometry(20, 275, 380, 260)
         self.img_var.setScaledContents(True)
@@ -139,12 +143,23 @@ class LaserTab(Tab):
     def connect_signals(self):
         self.btn_run.clicked.connect(self.start_laser_focus)
 
+    def intensity_score_plot(self):
+        score = microscope.focus_strategy.capture_scores
+        path = "Autofocus/plots/intensity_score.png"
+        plt.bar(list(range(len(score))), score, color='blue', edgecolor='black')
+        plt.xticks(list(range(len(score))))
+        plt.title('Image Scores')
+        plt.xlabel('Image')
+        plt.ylabel('Intensity Score')
+        plt.savefig(path)
+        return path
+
     def start_laser_focus(self):
         self.logger.log("laser focus")
         try:
-            start = float(self.txt_start.text())
-            end = float(self.txt_end.text())
-            step = float(self.txt_step.text())
+            start = int(self.txt_start.text())
+            end = int(self.txt_end.text())
+            step = int(self.txt_step.text())
         except ValueError:
             self.logger.log("Error: Invalid input for start, end, or step. Please enter numeric values.")
             return
@@ -157,25 +172,18 @@ class LaserTab(Tab):
             self.logger.log("Error: Step value must be greater than zero.")
             return
 
-        edit_offset = self.radio_amplitude.isChecked()
-
-        if edit_offset:
-            self.offset = float(self.txt_offset.text())
-            return
-
         laserfocus = microscope.auto_focus(Laser, start, end, step)
  
         if laserfocus is not None:
             self.logger.log(f"Laser focus distance: {laserfocus}")
-            self.txt_z = laserfocus
-            self.txt_laserfocus.setText(str(self.laserfocus))
+            self.txt_z.setText(str(laserfocus))
 
             self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
             self.img_bf.setPixmap(self.plot_bf)
 
-            self.variance_plot()
-            self.plot_var = QPixmap(self.variance_plot())
-            self.img_var.setPixmap(self.plot_var)
+            self.intensity_score_plot()
+            self.plot_intensity_score = QPixmap(self.intensity_score_plot())
+            self.img_var.setPixmap(self.plot_intensity_score)
         else:
             self.logger.log("Error: Laser focus failed. Please check the settings and try again.")
         

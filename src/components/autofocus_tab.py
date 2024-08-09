@@ -125,8 +125,8 @@ class AutofocusTab(Tab):
         self.btn_run.clicked.connect(self.start_autofocus)
 
     def variance_plot(self):
-        variance = microscope.focus_strategy.batch_variance
-        path = f"{microscope.focus_strategy.image_dir}/plots/variance.png"
+        variance = microscope.focus_strategy.capture_scores
+        path = "Autofocus/plots/variance.png"
         plt.bar(list(range(len(variance))), variance, color='blue', edgecolor='black')
         plt.xticks(list(range(len(variance))))
         plt.title('Image Variance')

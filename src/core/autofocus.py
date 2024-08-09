@@ -1,5 +1,7 @@
-import tifffile as tiff
+import cv2
 import numpy as np
+import tifffile as tiff
+import os
 import pandas as pd
 from abc import ABC, abstractmethod
 
@@ -8,51 +10,57 @@ from core.lamp import Lamp
 from core.stage import Stage
 
 from time import sleep
-from os import makedirs
 
 class Autofocus(ABC):
-    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="Autofocus"):
+    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir=""):
         self.camera = camera
         self.lamp = lamp
         self.stage = stage
-        self.image_dir = image_dir
+        self.image_dir = f"Autofocus/{image_dir}"
         self.focus_distance = None
         self.focused_image = None
         self.captures = []
-        self.batch_variance = []
-        makedirs(f"{self.image_dir}/images", exist_ok=True)
-        makedirs(f"{self.image_dir}/spectra", exist_ok=True)
-        makedirs(f"{self.image_dir}/plots", exist_ok=True)
+        self.capture_scores = []
+        os.makedirs(f"Autofocus/plots", exist_ok=True)
+        os.makedirs(self.image_dir, exist_ok=True)
+
+    def get_file_path(self, index: int) -> str:
+        if isinstance(self.camera, Camera):
+            return f"{self.image_dir}/capture_{index}.tif"
+        elif isinstance(self.camera, SpectralCamera):
+            return f"{self.image_dir}/capture_{index}.csv"
+        raise ValueError("Unsupported camera in class Autofocus")
 
     def zscan(self, start: int, end: int, step: int = 1) -> None:
         self.start = int(start)
         self.end = int(end)
         self.step = int(step)
+
         self.stage.move(z=self.start)
-        self.lamp.set_on()
         sleep(2)
 
         for i, z_val in enumerate(range(self.start - self.step * 5, self.end + self.step, self.step)):
             try:
                 img = self.camera.capture()
-                self.stage.move(z=z_val+5)
+                self.stage.move(z=z_val + 5)
                 sleep(1)
-                if i < 5: continue # discarding first 5 images for important reason !!!!
+
+                if i < 5:
+                    continue
+
+                pre_path = self.get_file_path(i - 5)
                 
                 if isinstance(self.camera, Camera):
-                    pre_path = f"{self.image_dir}/images/capture_{i-5}.tif"
                     tiff.imwrite(pre_path, img)
-                    self.captures.append(pre_path)
                 elif isinstance(self.camera, SpectralCamera):
-                    pre_path = f"{self.image_dir}/spectra/capture_{i-5}.csv"
-                    pd.write_csv(pre_path, img)
-                    self.captures.append(pre_path)
+                    pd.DataFrame(img).to_csv(pre_path) 
+                
+                self.captures.append(pre_path)
 
             except Exception as e:
                 print(f"Error capturing at z={z_val}: {e}")
 
-        self.stage.move(z=start)
-        self.lamp.set_off()
+        self.stage.move(z=self.start)
 
     @abstractmethod
     def focus(self, start: int, end: int, step: int) -> float:
@@ -60,7 +68,7 @@ class Autofocus(ABC):
 
 
 class Amplitude(Autofocus):
-    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="Autofocus"):
+    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="images"):
         super().__init__(camera, stage, lamp, image_dir)
 
 
@@ -84,14 +92,15 @@ class Amplitude(Autofocus):
                 print(f"Error processing capture {i}: {e}")
 
         self.focus_distance = self.start + self.step * max_index
-        self.focused_image = f"{self.image_dir}/images/capture_{max_index}.tif"
+        self.focused_image = self.get_file_path(max_index)
         print(self.focused_image)
-        self.batch_variance = variances
+        self.capture_scores = variances
+
         return self.focus_distance
 
 
 class Phase(Autofocus):
-    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="Autofocus"):
+    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="images"):
         super().__init__(camera, stage, lamp, image_dir)
 
     def focus(self, start: int, end: int, step: int) -> float:
@@ -113,16 +122,68 @@ class Phase(Autofocus):
                 print(f"Error processing capture {i}: {e}")
 
         self.focus_distance = self.start + self.step * min_index
-        self.focused_image = f"{self.image_dir}/images/capture_{min_index}.tif"
+        self.focused_image = self.get_file_path(min_index)
         print(self.focused_image)
-        self.batch_variance = variances
+        self.capture_scores = variances
+
         return self.focus_distance
 
 class Laser(Autofocus):
+    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="laser"):
+        super().__init__(camera, stage, lamp, image_dir)
+
     def focus(self, start: int, end: int, step: int) -> float:
-        pass
+        self.zscan(start, end, step)
+        # self.captures.sort()
+        focus_scores = []
+
+        for imagefile in self.captures:
+            img = tiff.imread(imagefile)
+            spot_area, spot_intensity = self.detect_spot_and_measure(img)
+            focus_score = spot_intensity / (spot_area + 1e-10)
+            focus_scores.append(focus_score)
+        
+        focus_scores = np.array(focus_scores)
+
+        min_score = np.min(focus_scores)
+        max_score = np.max(focus_scores)
+        
+        if max_score > min_score:
+            normalized_scores = (focus_scores - min_score) / (max_score - min_score)
+        else:
+            normalized_scores = np.zeros_like(focus_scores)
+
+        best_focus_index = np.argmax(normalized_scores)
+        best_focus_image_path = self.captures[best_focus_index]
+
+        print(f"The best focused image is: {best_focus_image_path}")
+        self.focus_distance = self.start + self.step * best_focus_index
+        self.focused_image = best_focus_image_path
+        print(self.focused_image)
+        self.capture_scores = normalized_scores
+
+        return self.focus_distance
+
+    def detect_spot_and_measure(self, image):
+        gray = np.max(image) - image
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if contours:
+            max_contour = max(contours, key=cv2.contourArea)
+            spot_area = cv2.contourArea(max_contour)
+            spot_intensity = cv2.mean(gray, mask=cv2.drawContours(np.zeros_like(gray), [max_contour], -1, 255, thickness=-1))[0]
+        else:
+            spot_area = float('inf') 
+            spot_intensity = 0
+
+        return spot_area, spot_intensity
 
 
 class RamanSpectra(Autofocus):
+    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="spectra"):
+        super().__init__(camera, stage, lamp, image_dir)
+
     def focus(self, start: int, end: int, step: int) -> float:
         pass
