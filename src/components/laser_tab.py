@@ -7,6 +7,9 @@ from core.microscope import microscope
 import matplotlib.pyplot as plt
 from core.autofocus import Autofocus, Laser
 
+import tifffile as tiff
+import numpy as np
+
 class LaserTab(Tab):
     def __init__(self, logger=None):
         super().__init__(logger)
@@ -14,7 +17,7 @@ class LaserTab(Tab):
         self.connect_signals()
 
     def preprocess(self):
-        microscope.lamp.set_on()
+        microscope.lamp.set_off()
         controller.set_serial_port_command("COM4", "CURRENT=40", "\r\n");
 
     def postprocess(self):
@@ -71,7 +74,7 @@ class LaserTab(Tab):
         self.txt_offset.setReadOnly(True)
         self.checkbox_offset = QCheckBox("Edit", left_panel)
         self.checkbox_offset.setGeometry(140, 205, 160, 40)
-        self.checkbox_offset.clicked.connect(lambda: self.txt_offset.setReadOnly(not self.checkbox_offset.isChecked()))
+        self.checkbox_offset.setChecked(False)
         
         line_separator2 = QFrame(left_panel)
         line_separator2.setGeometry(0, 300, 400, 1)
@@ -142,6 +145,17 @@ class LaserTab(Tab):
 
     def connect_signals(self):
         self.btn_run.clicked.connect(self.start_laser_focus)
+        self.checkbox_offset.clicked.connect(self.handle_manual_offset)
+
+    def handle_manual_offset(self):
+        checked = self.checkbox_offset.isChecked()
+        self.txt_offset.setReadOnly(not checked)
+        if checked:
+            offset_text = self.txt_offset.text()
+            if offset_text.isdigit():
+                Tab.set_state('LASER-OFFSET', int(offset_text))
+            else:
+                self.logger.log("Offset value is not a valid number.")
 
     def intensity_score_plot(self):
         score = microscope.focus_strategy.capture_scores
@@ -155,6 +169,7 @@ class LaserTab(Tab):
         return path
 
     def start_laser_focus(self):
+        self.preprocess()
         self.logger.log("laser focus")
         try:
             start = int(self.txt_start.text())
@@ -176,7 +191,22 @@ class LaserTab(Tab):
  
         if laserfocus is not None:
             self.logger.log(f"Laser focus distance: {laserfocus}")
+            
+            image_array = np.array(tiff.imread(microscope.focus_strategy.focused_image))
+
+            if len(image_array.shape) > 2:
+                image_array = np.mean(image_array, axis=-1) 
+
+            y, x = np.unravel_index(np.argmax(image_array), image_array.shape)
+
+            print(f"The best focused image is: {microscope.focus_strategy.focused_image}")
+            print(f"Bright spot is at  ({x}, {y})")
+            self.txt_x.setText(str(x))
+            self.txt_y.setText(str(y))
             self.txt_z.setText(str(laserfocus))
+            
+            Tab.set_state('LASER-OFFSET', Tab.get_state('ZFOCUS') - laserfocus)
+            self.txt_offset.setText(str(Tab.get_state('LASER-OFFSET')))
 
             self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
             self.img_bf.setPixmap(self.plot_bf)
@@ -187,4 +217,4 @@ class LaserTab(Tab):
         else:
             self.logger.log("Error: Laser focus failed. Please check the settings and try again.")
         
-
+        self.postprocess()

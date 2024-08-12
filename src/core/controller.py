@@ -22,6 +22,7 @@ class Controller(Core):
     def _initialize_core(self):
         if self.headless:
             start_headless(self._app_path, self._config_file, debug=False)
+            print('headless')
         self.load_system_configuration(self._config_file)
 
     def __del__(self):

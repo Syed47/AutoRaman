@@ -17,10 +17,10 @@ class AutofocusTab(Tab):
         self.connect_signals()
 
     def preprocess(self):
-        pass
+        microscope.lamp.set_on()
 
     def postprocess(self):
-        pass
+        microscope.lamp.set_off()
 
     def init_ui(self):
         tab_layout = QHBoxLayout()
@@ -136,6 +136,7 @@ class AutofocusTab(Tab):
         return path
 
     def start_autofocus(self):
+        self.preprocess()
         self.logger.log("autofocus")
         try:
             start = float(self.txt_start.text())
@@ -170,6 +171,8 @@ class AutofocusTab(Tab):
             self.logger.log(f"Autofocus Distance: {zfocus}")
             self.zfocus = zfocus
             self.txt_zfocus.setText(str(self.zfocus))
+            
+            Tab.set_state('ZFOCUS', self.zfocus)
 
             self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
             self.img_bf.setPixmap(self.plot_bf)
@@ -179,3 +182,4 @@ class AutofocusTab(Tab):
             self.img_var.setPixmap(self.plot_var)
         else:
             self.logger.log("Error: Autofocus failed. Please check the settings and try again.")
+        self.postprocess()

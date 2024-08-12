@@ -17,7 +17,9 @@ import sys
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
+        self.state = {}
         self.init_ui()
+        
 
     def init_ui(self):
         self.setWindowTitle("AutoRaman")
