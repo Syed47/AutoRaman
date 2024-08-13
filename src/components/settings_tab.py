@@ -5,6 +5,7 @@ from PyQt5.QtCore import Qt, QTimer
 from components.tab import Tab
 from core.microscope import microscope
 from core.controller import controller
+from components.state import state_manager
 
 from numpy import max
 from time import sleep
@@ -26,21 +27,16 @@ class SettingsTab(Tab):
         self.xstep = 100
         self.ystep = 100
         self.zstep = 10
-        self.binning = "1x1"
-        self.pixel_type = "GREY8"
-        self.filter_position = controller.get_property("FilterCube", "Label")
-        self.exposure = 15
-        self.lamp_voltage = 11
-        self.lamp_switch = False
-        self.auto_exposure = False
-        self.inverted_image = False
 
-        microscope.lamp.set_off()
-        microscope.camera.set_option("Binning", self.binning)
-        microscope.camera.set_option("PixelType", self.pixel_type)
-        microscope.camera.set_exposure(self.exposure)
-        microscope.camera.set_option("ExposureAuto", "1" if self.auto_exposure else "0")
-        controller.set_property("TransmittedLamp", "Voltage", self.lamp_voltage)
+        state_manager.set('LAMP', False)
+        state_manager.set('LASER', 0)
+        state_manager.set('BINNING', '1x1')
+        state_manager.set('PIXEL-TYPE', 'GREY8')
+        state_manager.set('FILTER-POSITION', 'Postion-1')
+        state_manager.set('EXPOSURE', 15)
+        state_manager.set('AUTO-EXPOSURE', False)
+        state_manager.set('LAMP-VOLTAGE', 10)
+        state_manager.set('INVERTED-IMAGE', False)
 
     def postprocess(self):
         self.stop_live_view()
@@ -79,27 +75,6 @@ class SettingsTab(Tab):
         self.txt_move_z.textChanged.connect(
             lambda value: setattr(self, 'zstep', int(value) if value and int(value) <= 200 else 200)
         )
-
-    def handle_lamp_switch(self):
-        self.lamp_switch = self.checkbox_lamp_switch.isChecked()
-        if self.lamp_switch:
-            microscope.lamp.set_on()
-        else:
-            microscope.lamp.set_off()
-
-    def handle_auto_exposure(self):
-        self.auto_exposure = self.checkbox_auto_exposure.isChecked()
-        if self.auto_exposure:
-            microscope.camera.set_option("ExposureAuto", "1")
-            self.slider_exposure.setEnabled(False) 
-            self.txt_exposure_value.setEnabled(False)
-        else:
-            microscope.camera.set_option("ExposureAuto", "0")
-            self.slider_exposure.setEnabled(True) 
-            self.txt_exposure_value.setEnabled(True)
-
-    def handle_inverted_image(self):
-        self.inverted_image = self.checkbox_inverted_image.isChecked()
 
     def init_ui(self):
         tab_layout = QHBoxLayout()
@@ -196,7 +171,6 @@ class SettingsTab(Tab):
         line_separator2.setGeometry(0, 420, 400, 1)
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
-
 
         right_panel = QFrame()
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
@@ -318,38 +292,43 @@ class SettingsTab(Tab):
         if file_name:
             self.config_file_path.setText(file_name)
 
+    def handle_lamp_switch(self):
+        state_manager.set('LAMP', self.checkbox_lamp_switch.isChecked())
+
+    def handle_auto_exposure(self):
+        state_manager.set('AUTO-EXPOSURE', self.checkbox_auto_exposure.isChecked())
+        if state_manager.get('AUTO-EXPOSURE'):
+            self.slider_exposure.setEnabled(False)
+            self.txt_exposure_value.setEnabled(False)
+        else:
+            self.slider_exposure.setEnabled(True) 
+            self.txt_exposure_value.setEnabled(True)
+
+    def handle_inverted_image(self):
+        state_manager.set('INVERTED-IMAGE', self.checkbox_inverted_image.isChecked())
+
     def change_exposure(self, value):
-        if value < 0 or value > 2000:
+        if value < 1 or value > 2000:
             self.logger.log("Error: Exposure must be between 0 and 2000")
             return
-        self.exposure = value
-        self.txt_exposure_value.setText(str(self.exposure))
-        microscope.camera.set_exposure(self.exposure)
-        print(self.exposure)
+        self.txt_exposure_value.setText(str(value))
+        state_manager.set('EXPOSURE', value)
 
     def change_lamp_voltage(self, value):
         if value < 0 or value > 12:
             self.logger.log("Error: lamp_voltage must be between 0 and 12")
             return
-        self.lamp_voltage = value
-        self.txt_lamp_voltage_value.setText(str(self.lamp_voltage))
-        controller.set_property("TransmittedLamp", "Voltage", self.lamp_voltage)
-        print(self.lamp_voltage)
+        self.txt_lamp_voltage_value.setText(str(value))
+        state_manager.set('LAMP-VOLTAGE', value)
 
     def set_binning(self):
-        self.binning = self.cmb_binning.currentText()
-        print(self.binning)
-        microscope.camera.set_option("Binning", self.binning)
+        state_manager.set('BINNING', self.cmb_binning.currentText())
 
     def set_pixel_type(self):
-        self.pixel_type = self.cmd_pixel_type.currentText()
-        print(self.pixel_type)
-        microscope.camera.set_option("PixelType", self.pixel_type)
+        state_manager.set('PIXEL-TYPE', self.cmd_pixel_type.currentText())
 
     def set_filter_position(self):
-        self.filter_position = self.cmb_filter_position.currentText()
-        controller.set_property("FilterCube", "Label", self.filter_position);
-        print(self.filter_position)
+        state_manager.set('FILTER-POSITION', self.cmb_filter_position.currentText())
 
     def live_preview(self):
         if self.islive:
@@ -382,13 +361,13 @@ class SettingsTab(Tab):
                 tagged_image = controller.get_last_tagged_image()
                 image = None
                 
-                if self.pixel_type == "GREY8":
+                if state_manager.get('PIXEL_TYPE') == "GREY8":
                     image = tagged_image.pix.reshape(tagged_image.tags['Height'], tagged_image.tags['Width'])
-                elif self.pixel_type == 'RGB32':
+                elif state_manager.get('PIXEL_TYPE') == 'RGB32':
                     image = tagged_image.pix.reshape(3072, 4096)
                     image = cv2.resize(image, (tagged_image.tags['Height'], tagged_image.tags['Width'])) 
 
-                if self.inverted_image:
+                if state_manager.get('INVERTED-IMAGE'):
                     image = max(image) - image
 
                 qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)

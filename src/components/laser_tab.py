@@ -2,10 +2,10 @@ from PyQt5.QtWidgets import QHBoxLayout, QFrame, QLabel, QCheckBox, QLineEdit, Q
 from PyQt5.QtGui import QPixmap
 
 from components.tab import Tab
-from core.controller import controller
+from components.state import state_manager
 from core.microscope import microscope
 import matplotlib.pyplot as plt
-from core.autofocus import Autofocus, Laser
+from core.autofocus import Laser
 
 import tifffile as tiff
 import numpy as np
@@ -17,12 +17,11 @@ class LaserTab(Tab):
         self.connect_signals()
 
     def preprocess(self):
-        microscope.lamp.set_off()
-        controller.set_serial_port_command("COM4", "CURRENT=40", "\r\n");
+        state_manager.set('LAMP', False)
+        state_manager.set('LASER', 40)
 
     def postprocess(self):
-        microscope.lamp.set_off()
-        controller.set_serial_port_command("COM4", "CURRENT=0", "\r\n");
+        state_manager.set('LASER', 40)
 
     def init_ui(self):
         tab_layout = QHBoxLayout()

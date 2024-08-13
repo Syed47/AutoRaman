@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import  QVBoxLayout, QLabel
 
-from tab import Tab
+from components.tab import Tab
 
 class CellsTab(Tab):
     def __init__(self, logger=None):
@@ -15,4 +15,10 @@ class CellsTab(Tab):
 
     def connect_signals(self):
         pass
+
+    def preprocess(self):
+        return super().preprocess()
+    
+    def postprocess(self):
+        return super().postprocess()
 

@@ -30,5 +30,4 @@ class Microscope:
 
 # Only exposing microscope variable
 microscope = Microscope()
-print("microscope started")
 __all__ = ['microscope']

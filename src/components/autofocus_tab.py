@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton,
 from PyQt5.QtGui import QPixmap
 
 from components.tab import Tab
-
+from components.state import state_manager
 from core.autofocus import Autofocus, Amplitude, Phase
 from core.microscope import microscope
 
@@ -13,14 +13,15 @@ from io import BytesIO
 class AutofocusTab(Tab):
     def __init__(self, logger=None):
         super().__init__(logger)
+        self.zfocus = None
         self.init_ui()
         self.connect_signals()
 
     def preprocess(self):
-        microscope.lamp.set_on()
+        state_manager.set('LAMP', True)
 
     def postprocess(self):
-        microscope.lamp.set_off()
+        state_manager.set('LAMP', False)
 
     def init_ui(self):
         tab_layout = QHBoxLayout()
@@ -172,7 +173,7 @@ class AutofocusTab(Tab):
             self.zfocus = zfocus
             self.txt_zfocus.setText(str(self.zfocus))
             
-            Tab.set_state('ZFOCUS', self.zfocus)
+            state_manager.set('ZFOCUS', self.zfocus)
 
             self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
             self.img_bf.setPixmap(self.plot_bf)
