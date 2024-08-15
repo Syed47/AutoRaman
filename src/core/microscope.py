@@ -20,12 +20,17 @@ class Microscope:
             self.lamp: Lamp = Lamp()
             self._initialized = True 
 
+    def snap_image(self):
+        img = self.camera.capture()
+        sleep(1)
+        return img
+
     def move_stage(self, x=0, y=0, z=0):
         self.stage.moveby(x, y, z)
 
-    def auto_focus(self, strategy: Autofocus, start: int, end: int, step: int = 1) -> float:
+    def auto_focus(self, strategy: Autofocus, start: int, end: int, step: int = 1, callback=None) -> float:
         self.focus_strategy = strategy(self.camera, self.stage, self.lamp)
-        return self.focus_strategy.focus(start, end, step)
+        return self.focus_strategy.focus(start, end, step, callback)
 
 
 # Only exposing microscope variable

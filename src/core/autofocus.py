@@ -31,7 +31,7 @@ class Autofocus(ABC):
             return f"{self.image_dir}/capture_{index}.csv"
         raise ValueError("Unsupported camera in class Autofocus")
 
-    def zscan(self, start: int, end: int, step: int = 1) -> None:
+    def zscan(self, start: int, end: int, step: int = 1, callback=lambda x: None) -> None:
         self.start = int(start)
         self.end = int(end)
         self.step = int(step)
@@ -54,8 +54,9 @@ class Autofocus(ABC):
                     tiff.imwrite(pre_path, img)
                 elif isinstance(self.camera, SpectralCamera):
                     pd.DataFrame(img).to_csv(pre_path) 
-                
+
                 self.captures.append(pre_path)
+                callback(pre_path)
 
             except Exception as e:
                 print(f"Error capturing at z={z_val}: {e}")
@@ -63,7 +64,7 @@ class Autofocus(ABC):
         self.stage.move(z=self.start)
 
     @abstractmethod
-    def focus(self, start: int, end: int, step: int) -> float:
+    def focus(self, start: int, end: int, step: int, callback=None) -> float:
         pass
 
 
@@ -72,9 +73,8 @@ class Amplitude(Autofocus):
         super().__init__(camera, stage, lamp, image_dir)
 
 
-    def focus(self, start: int, end: int, step: int) -> float:
-        self.zscan(start, end, step)
-        print("zscan done")
+    def focus(self, start: int, end: int, step: int, callback=None) -> float:
+        self.zscan(start, end, step, callback)
         max_var, max_index, variances = -1, -1, []
 
         for i, capture_path in enumerate(self.captures):
@@ -103,8 +103,8 @@ class Phase(Autofocus):
     def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="images"):
         super().__init__(camera, stage, lamp, image_dir)
 
-    def focus(self, start: int, end: int, step: int) -> float:
-        self.zscan(start, end, step)
+    def focus(self, start: int, end: int, step: int, callback=None) -> float:
+        self.zscan(start, end, step, callback)
         min_var, min_index, variances = 1e10, -1, []
 
         for i, capture_path in enumerate(self.captures):
@@ -132,8 +132,8 @@ class Laser(Autofocus):
     def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="laser"):
         super().__init__(camera, stage, lamp, image_dir)
 
-    def focus(self, start: int, end: int, step: int) -> float:
-        self.zscan(start, end, step)
+    def focus(self, start: int, end: int, step: int, callback=None) -> float:
+        self.zscan(start, end, step, callback)
         # self.captures.sort()
         focus_scores = []
 
@@ -185,5 +185,5 @@ class RamanSpectra(Autofocus):
     def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="spectra"):
         super().__init__(camera, stage, lamp, image_dir)
 
-    def focus(self, start: int, end: int, step: int) -> float:
+    def focus(self, start: int, end: int, step: int, callback=None) -> float:
         pass

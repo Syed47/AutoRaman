@@ -175,7 +175,7 @@ class SettingsTab(Tab):
         right_panel = QFrame()
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
 
-        self.image = QPixmap("image_2.tif")
+        self.image = QPixmap("microscope.png")
         self.live_image = QLabel(right_panel)
         self.live_image.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.live_image.setPixmap(self.image)

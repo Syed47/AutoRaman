@@ -99,7 +99,7 @@ class AutofocusTab(Tab):
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
         right_panel.setFixedSize(420, 540)
 
-        self.plot_bf = QPixmap("components/image_2.tif")
+        self.plot_bf = QPixmap("microscope.png")
         self.img_bf = QLabel(right_panel)
         self.img_bf.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_bf.setPixmap(self.plot_bf)
@@ -107,7 +107,7 @@ class AutofocusTab(Tab):
         self.img_bf.setGeometry(20, 5, 380, 260)
         self.img_bf.setScaledContents(True)
 
-        self.plot_var = QPixmap("components/bar.png")
+        self.plot_var = QPixmap("bar-chart.png")
         self.img_var = QLabel(right_panel)
         self.img_var.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_var.setPixmap(self.plot_var)
@@ -125,9 +125,8 @@ class AutofocusTab(Tab):
     def connect_signals(self):
         self.btn_run.clicked.connect(self.start_autofocus)
 
-    def variance_plot(self):
+    def plot_variance(self, path="Autofocus/plots/variance.png"):
         variance = microscope.focus_strategy.capture_scores
-        path = "Autofocus/plots/variance.png"
         plt.bar(list(range(len(variance))), variance, color='blue', edgecolor='black')
         plt.xticks(list(range(len(variance))))
         plt.title('Image Variance')
@@ -135,6 +134,10 @@ class AutofocusTab(Tab):
         plt.ylabel('Variance')
         plt.savefig(path)
         return path
+
+    def handle_capture_image(self, capture_path):
+        self.plot_bf = QPixmap(capture_path)
+        self.img_bf.setPixmap(self.plot_bf)
 
     def start_autofocus(self):
         self.preprocess()
@@ -164,9 +167,9 @@ class AutofocusTab(Tab):
 
         zfocus = None
         if amplitude:
-            zfocus = microscope.auto_focus(Amplitude, start, end, step)
+            zfocus = microscope.auto_focus(Amplitude, start, end, step, self.handle_capture_image)
         elif phase:
-            zfocus = microscope.auto_focus(Phase, start, end, step)
+            zfocus = microscope.auto_focus(Phase, start, end, step, self.handle_capture_image)
 
         if zfocus is not None:
             self.logger.log(f"Autofocus Distance: {zfocus}")
@@ -175,11 +178,10 @@ class AutofocusTab(Tab):
             
             state_manager.set('ZFOCUS', self.zfocus)
 
-            self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
-            self.img_bf.setPixmap(self.plot_bf)
+            self.handle_capture_image(microscope.focus_strategy.focused_image)
 
-            self.variance_plot()
-            self.plot_var = QPixmap(self.variance_plot())
+            self.plot_variance()
+            self.plot_var = QPixmap(self.plot_variance())
             self.img_var.setPixmap(self.plot_var)
         else:
             self.logger.log("Error: Autofocus failed. Please check the settings and try again.")

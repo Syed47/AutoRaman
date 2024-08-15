@@ -119,7 +119,7 @@ class LaserTab(Tab):
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")  
         right_panel.setFixedSize(420, 540)
 
-        self.plot_bf = QPixmap("components/image_2.tif")
+        self.plot_bf = QPixmap("microscope.png")
         self.img_bf = QLabel(right_panel)
         self.img_bf.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_bf.setPixmap(self.plot_bf)
@@ -127,7 +127,7 @@ class LaserTab(Tab):
         self.img_bf.setGeometry(20, 5, 380, 260)
         self.img_bf.setScaledContents(True)
 
-        self.plot_intensity_score = QPixmap("components/bar.png")
+        self.plot_intensity_score = QPixmap("bar-chart.png")
         self.img_var = QLabel(right_panel)
         self.img_var.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_var.setPixmap(self.plot_intensity_score)
@@ -156,7 +156,7 @@ class LaserTab(Tab):
             else:
                 self.logger.log("Offset value is not a valid number.")
 
-    def intensity_score_plot(self):
+    def plot_intensity_scores(self):
         score = microscope.focus_strategy.capture_scores
         path = "Autofocus/plots/intensity_score.png"
         plt.bar(list(range(len(score))), score, color='blue', edgecolor='black')
@@ -166,6 +166,10 @@ class LaserTab(Tab):
         plt.ylabel('Intensity Score')
         plt.savefig(path)
         return path
+
+    def handle_capture_image(self, capture_path):
+        self.plot_bf = QPixmap(capture_path)
+        self.img_bf.setPixmap(self.plot_bf)
 
     def start_laser_focus(self):
         self.preprocess()
@@ -186,7 +190,7 @@ class LaserTab(Tab):
             self.logger.log("Error: Step value must be greater than zero.")
             return
 
-        laserfocus = microscope.auto_focus(Laser, start, end, step)
+        laserfocus = microscope.auto_focus(Laser, start, end, step, self.handle_capture_image)
  
         if laserfocus is not None:
             self.logger.log(f"Laser focus distance: {laserfocus}")
@@ -207,11 +211,10 @@ class LaserTab(Tab):
             Tab.set_state('LASER-OFFSET', Tab.get_state('ZFOCUS') - laserfocus)
             self.txt_offset.setText(str(Tab.get_state('LASER-OFFSET')))
 
-            self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
-            self.img_bf.setPixmap(self.plot_bf)
+            self.handle_capture_image(microscope.focus_strategy.focused_image)
 
-            self.intensity_score_plot()
-            self.plot_intensity_score = QPixmap(self.intensity_score_plot())
+            self.plot_intensity_scores()
+            self.plot_intensity_score = QPixmap(self.plot_intensity_scores())
             self.img_var.setPixmap(self.plot_intensity_score)
         else:
             self.logger.log("Error: Laser focus failed. Please check the settings and try again.")

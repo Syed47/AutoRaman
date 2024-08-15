@@ -31,8 +31,8 @@ class Camera(ICamera):
         super().__init__(camera)
         self.width = self.controller.get_image_width()
         self.height = self.controller.get_image_height()
+        self.snapped_image = None
        
-
     def capture(self) -> np.array:
         self.controller.snap_image()
         img = self.controller.get_image()
