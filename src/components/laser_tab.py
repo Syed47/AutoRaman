@@ -19,9 +19,15 @@ class LaserTab(Tab):
     def preprocess(self):
         state_manager.set('LAMP', False)
         state_manager.set('LASER', 40)
-
+    
     def postprocess(self):
-        state_manager.set('LASER', 40)
+        state_manager.set('LASER', 0)
+
+    def update(self):
+        pass
+        # self.txt_start.setText(str(state_manager.get('ZSTART')))
+        # self.txt_end.setText(str(state_manager.get('ZEND')))
+        # self.txt_step.setText(str(state_manager.get('ZSTEP')))
 
     def init_ui(self):
         tab_layout = QHBoxLayout()
@@ -41,6 +47,7 @@ class LaserTab(Tab):
         self.txt_start.setPlaceholderText("1350 (μm)")
         self.txt_start.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_start.setGeometry(160, 20, 100, 40)
+        self.txt_start.setText(str(state_manager.get('ZSTART')))
 
         line_label2 = QLabel("End (μm):", left_panel)
         line_label2.setGeometry(40, 80, 100, 40)
@@ -49,6 +56,7 @@ class LaserTab(Tab):
         self.txt_end.setPlaceholderText("1400 (μm)")
         self.txt_end.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_end.setGeometry(160, 80, 100, 40)
+        self.txt_end.setText(str(state_manager.get('ZEND')))
 
         line_label3 = QLabel("Step (μm):", left_panel)
         line_label3.setGeometry(40, 140, 100, 40)
@@ -57,7 +65,8 @@ class LaserTab(Tab):
         self.txt_step.setPlaceholderText("1 (μm)")
         self.txt_step.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_step.setGeometry(160, 140, 100, 40)
-        
+        self.txt_step.setText(str(state_manager.get('ZSTEP')))
+
         line_separator = QFrame(left_panel)
         line_separator.setGeometry(0, 200, 400, 1)
         line_separator.setFrameShape(QFrame.HLine)
@@ -119,7 +128,7 @@ class LaserTab(Tab):
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")  
         right_panel.setFixedSize(420, 540)
 
-        self.plot_bf = QPixmap("microscope.png")
+        self.plot_bf = QPixmap("components/microscope.png")
         self.img_bf = QLabel(right_panel)
         self.img_bf.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_bf.setPixmap(self.plot_bf)
@@ -127,7 +136,7 @@ class LaserTab(Tab):
         self.img_bf.setGeometry(20, 5, 380, 260)
         self.img_bf.setScaledContents(True)
 
-        self.plot_intensity_score = QPixmap("bar-chart.png")
+        self.plot_intensity_score = QPixmap("components/bar-chart.png")
         self.img_var = QLabel(right_panel)
         self.img_var.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_var.setPixmap(self.plot_intensity_score)
@@ -145,6 +154,9 @@ class LaserTab(Tab):
     def connect_signals(self):
         self.btn_run.clicked.connect(self.start_laser_focus)
         self.checkbox_offset.clicked.connect(self.handle_manual_offset)
+        self.txt_start.textChanged.connect(lambda val: state_manager.set('ZSTART', (int(val) if val.isdigit() else None) ))
+        self.txt_end.textChanged.connect(lambda val: state_manager.set('ZEND', (int(val) if val.isdigit() else None)))
+        self.txt_step.textChanged.connect(lambda val: state_manager.set('ZSTEP', (int(val) if val.isdigit() else None)))
 
     def handle_manual_offset(self):
         checked = self.checkbox_offset.isChecked()
@@ -152,7 +164,7 @@ class LaserTab(Tab):
         if checked:
             offset_text = self.txt_offset.text()
             if offset_text.isdigit():
-                Tab.set_state('LASER-OFFSET', int(offset_text))
+                state_manager.set('LASER-OFFSET', int(offset_text))
             else:
                 self.logger.log("Offset value is not a valid number.")
 
@@ -160,7 +172,7 @@ class LaserTab(Tab):
         score = microscope.focus_strategy.capture_scores
         path = "Autofocus/plots/intensity_score.png"
         plt.bar(list(range(len(score))), score, color='blue', edgecolor='black')
-        plt.xticks(list(range(len(score))))
+        plt.xticks(list(range(len(score))), rotation=45)
         plt.title('Image Scores')
         plt.xlabel('Image')
         plt.ylabel('Intensity Score')
@@ -170,6 +182,7 @@ class LaserTab(Tab):
     def handle_capture_image(self, capture_path):
         self.plot_bf = QPixmap(capture_path)
         self.img_bf.setPixmap(self.plot_bf)
+        self.img_bf.repaint()
 
     def start_laser_focus(self):
         self.preprocess()
@@ -208,8 +221,9 @@ class LaserTab(Tab):
             self.txt_y.setText(str(y))
             self.txt_z.setText(str(laserfocus))
             
-            Tab.set_state('LASER-OFFSET', Tab.get_state('ZFOCUS') - laserfocus)
-            self.txt_offset.setText(str(Tab.get_state('LASER-OFFSET')))
+            state_manager.set('LASER-FOCUS', laserfocus)
+            state_manager.set('LASER-OFFSET', state_manager.get('LASER-FOCUS') - state_manager.get('ZFOCUS'))
+            self.txt_offset.setText(str(state_manager.get('LASER-OFFSET')))
 
             self.handle_capture_image(microscope.focus_strategy.focused_image)
 

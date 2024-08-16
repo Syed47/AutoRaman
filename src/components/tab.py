@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QWidget
+from PyQt5.QtCore import QTimer
 from abc import ABC, ABCMeta, abstractmethod
 from components.style import StyleSheet
 
@@ -13,6 +14,13 @@ class Tab(QWidget, ABC, metaclass=QWidgetABCMeta):
         super().__init__()
         self.logger = logger
         self.setStyleSheet(StyleSheet)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update)
+        self.timer.start(500)
+
+    @abstractmethod
+    def update(self):
+        pass
 
     @abstractmethod
     def preprocess(self):

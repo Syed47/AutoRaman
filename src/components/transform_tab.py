@@ -3,9 +3,9 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt, QTimer
 
 from components.tab import Tab
-# from core.microscope import microscope
-# from core.controller import controller
-# from components.state import state_manager
+from core.microscope import microscope
+from core.controller import controller
+from components.state import state_manager
 
 import cv2
 import numpy as np
@@ -160,6 +160,9 @@ class TransformTab(Tab):
         self.txt_shift_x.setReadOnly(not checked)
         self.txt_shift_y.setReadOnly(not checked)
     
+    def update(self):
+        pass
+
     def transform(self):
         
         img1 = "Autofocus/transform/image-1.tif"

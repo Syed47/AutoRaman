@@ -27,7 +27,14 @@ class StateManager:
             "AUTO-EXPOSURE": lambda val: microscope.camera.set_option("ExposureAuto", "1" if val else "0"),
             "BINNING": lambda val: microscope.camera.set_option("Binning", val if val in ['1x1', '2x2', '4x4'] else '1x1'),
             "PIXEL-TYPE": lambda val: microscope.camera.set_option("PixelType", val if val in ['GREY8', 'RGB32'] else 'GREY8'),
-            "FILTER-POSITION": lambda val: controller.set_property("FilterCube", "Label", val) if val[::-1] and 0 < int(val[:-1]) < 7 else None
+            "FILTER-POSITION": lambda val: controller.set_property("FilterCube", "Label", val),
+            "INVERTED-IMAGE": lambda val : None,
+            "ZFOCUS": lambda val: None,
+            "LASER-FOCUS": lambda val: None,
+            "LASER-OFFSET": lambda val: None,
+            "ZSTART": lambda val: None,
+            "ZEND": lambda val: None,
+            "ZSTEP": lambda val: None
         }
 
         action = actions.get(key)
@@ -45,13 +52,17 @@ class StateManager:
 
 state_manager = StateManager()
 
-state_manager.set("LAMP", False)
-state_manager.set("LASER", 0)
-state_manager.set("LAMP-VOLTAGE", 11)
-state_manager.set("EXPOSURE", 15)
-state_manager.set("AUTO-EXPOSURE", True)
-state_manager.set("BINNING", '1x1')
-state_manager.set("PIXEL-TYPE", 'GREY8')
-state_manager.set("FILTER-POSITION", 'Position-1')
+state_manager.set('LAMP', False)
+state_manager.set('LASER', 0)
+state_manager.set('BINNING', '1x1')
+state_manager.set('PIXEL-TYPE', 'GREY8')
+state_manager.set('FILTER-POSITION', controller.get_property("FilterCube", "Label"))
+state_manager.set('EXPOSURE', 15)
+state_manager.set('AUTO-EXPOSURE', False)
+state_manager.set('LAMP-VOLTAGE', 10)
+state_manager.set('INVERTED-IMAGE', False)
+state_manager.set('ZSTART', 1320)
+state_manager.set('ZEND', 1340)
+state_manager.set('ZSTEP', 1)
 
 __all__ = ['state_manager']

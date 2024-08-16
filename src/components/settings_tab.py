@@ -28,16 +28,6 @@ class SettingsTab(Tab):
         self.ystep = 100
         self.zstep = 10
 
-        state_manager.set('LAMP', False)
-        state_manager.set('LASER', 0)
-        state_manager.set('BINNING', '1x1')
-        state_manager.set('PIXEL-TYPE', 'GREY8')
-        state_manager.set('FILTER-POSITION', 'Postion-1')
-        state_manager.set('EXPOSURE', 15)
-        state_manager.set('AUTO-EXPOSURE', False)
-        state_manager.set('LAMP-VOLTAGE', 10)
-        state_manager.set('INVERTED-IMAGE', False)
-
     def postprocess(self):
         self.stop_live_view()
 
@@ -107,6 +97,7 @@ class SettingsTab(Tab):
         self.cmb_binning.addItems(["1x1", "2x2", "4x4"])
         self.cmb_binning.setStyleSheet("QComboBox { font-size:16px; };")
         self.cmb_binning.setGeometry(160, 100, 100, 40)
+        self.cmb_binning.setCurrentText(state_manager.get('BINNING'))
 
         line_label2 = QLabel("Pixel Type:", left_panel)
         line_label2.setGeometry(40, 160, 100, 40)
@@ -116,6 +107,7 @@ class SettingsTab(Tab):
         self.cmd_pixel_type.addItems(["GREY8", "RGB32"])
         self.cmd_pixel_type.setStyleSheet("QComboBox { font-size:16px; };")
         self.cmd_pixel_type.setGeometry(160, 160, 100, 40)
+        self.cmd_pixel_type.setCurrentText(state_manager.get('PIXEL-TYPE'))
 
         line_label3 = QLabel("Filter Position:", left_panel)
         line_label3.setGeometry(40, 220, 100, 40)
@@ -125,7 +117,8 @@ class SettingsTab(Tab):
         self.cmb_filter_position.addItems(["Position-1", "Position-2", "Position-3", "Position-4", "Position-5", "Position-6"])
         self.cmb_filter_position.setStyleSheet("QComboBox { font-size:16px; };")
         self.cmb_filter_position.setGeometry(160, 220, 100, 40)
-
+        self.cmb_filter_position.setCurrentText(state_manager.get('FILTER-POSITION'))
+        
         line_separator = QFrame(left_panel)
         line_separator.setGeometry(0, 280, 400, 1)
         line_separator.setFrameShape(QFrame.HLine)
@@ -175,7 +168,7 @@ class SettingsTab(Tab):
         right_panel = QFrame()
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
 
-        self.image = QPixmap("microscope.png")
+        self.image = QPixmap("components/microscope.png")
         self.live_image = QLabel(right_panel)
         self.live_image.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.live_image.setPixmap(self.image)
@@ -352,6 +345,8 @@ class SettingsTab(Tab):
         self.btn_live.setText("Start Live")
         self.btn_live.setStyleSheet("background-color: #4CAF50;")
         self.timer.stop()
+        self.image = QPixmap("components/microscope.png")
+        self.live_image.setPixmap(self.image)
         self.logger.log("live preview stopped")
 
     def update_image(self):
@@ -360,10 +355,10 @@ class SettingsTab(Tab):
             if remaining_images > 0:
                 tagged_image = controller.get_last_tagged_image()
                 image = None
-                
-                if state_manager.get('PIXEL_TYPE') == "GREY8":
+
+                if state_manager.get('PIXEL-TYPE') == "GREY8":
                     image = tagged_image.pix.reshape(tagged_image.tags['Height'], tagged_image.tags['Width'])
-                elif state_manager.get('PIXEL_TYPE') == 'RGB32':
+                elif state_manager.get('PIXEL-TYPE') == 'RGB32':
                     image = tagged_image.pix.reshape(3072, 4096)
                     image = cv2.resize(image, (tagged_image.tags['Height'], tagged_image.tags['Width'])) 
 
@@ -380,3 +375,6 @@ class SettingsTab(Tab):
         except Exception as e:
             print(f"Error retrieving image: {e}")
             sleep(0.5)
+
+    def update(self):
+        pass

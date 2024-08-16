@@ -4,7 +4,7 @@ class Stage:
     def __init__(self):
         self.controller = controller
         self.focus_device = self.controller.get_focus_device()
-        self.xy_stage_device = self.controller.getxy_stage_device()
+        self.xy_stage_device = self.controller.get_xy_stage_device()
         self._x = self.controller.get_x_position(self.xy_stage_device)
         self._y = self.controller.get_y_position(self.xy_stage_device)
         self._z = self.controller.get_position(self.focus_device)
