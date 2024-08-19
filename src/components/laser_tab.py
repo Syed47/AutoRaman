@@ -177,7 +177,8 @@ class LaserTab(Tab):
         plt.xlabel('Image')
         plt.ylabel('Intensity Score')
         plt.savefig(path)
-        return path
+        self.plot_intensity_score = QPixmap(path)
+        self.img_var.setPixmap(self.plot_intensity_score)
 
     def handle_capture_image(self, capture_path):
         self.plot_bf = QPixmap(capture_path)
@@ -226,10 +227,7 @@ class LaserTab(Tab):
             self.txt_offset.setText(str(state_manager.get('LASER-OFFSET')))
 
             self.handle_capture_image(microscope.focus_strategy.focused_image)
-
             self.plot_intensity_scores()
-            self.plot_intensity_score = QPixmap(self.plot_intensity_scores())
-            self.img_var.setPixmap(self.plot_intensity_score)
         else:
             self.logger.log("Error: Laser focus failed. Please check the settings and try again.")
         

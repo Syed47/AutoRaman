@@ -61,8 +61,8 @@ state_manager.set('EXPOSURE', 15)
 state_manager.set('AUTO-EXPOSURE', False)
 state_manager.set('LAMP-VOLTAGE', 10)
 state_manager.set('INVERTED-IMAGE', False)
-state_manager.set('ZSTART', 1320)
-state_manager.set('ZEND', 1340)
+state_manager.set('ZSTART', 1325)
+state_manager.set('ZEND', 1350)
 state_manager.set('ZSTEP', 1)
 
 __all__ = ['state_manager']
