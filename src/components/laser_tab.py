@@ -177,6 +177,7 @@ class LaserTab(Tab):
         plt.xlabel('Image')
         plt.ylabel('Intensity Score')
         plt.savefig(path)
+        plt.close()
         self.plot_intensity_score = QPixmap(path)
         self.img_var.setPixmap(self.plot_intensity_score)
 

@@ -143,12 +143,12 @@ class SettingsTab(Tab):
         self.txt_exposure_value.setGeometry(250, 300, 60, 40)
 
         label_lamp_voltage = QLabel("Lamp Voltage", left_panel)
-        label_lamp_voltage.setGeometry(20, 350, 100, 40)
+        label_lamp_voltage.setGeometry(20, 360, 100, 40)
         label_lamp_voltage.setAlignment(Qt.AlignCenter)
         label_lamp_voltage.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
         self.slider_lamp_voltage = QSlider(Qt.Horizontal, left_panel)
-        self.slider_lamp_voltage.setGeometry(130, 350, 100, 40)
+        self.slider_lamp_voltage.setGeometry(130, 360, 100, 40)
         self.slider_lamp_voltage.setMinimum(0)
         self.slider_lamp_voltage.setMaximum(12)
         self.slider_lamp_voltage.setValue(11)
@@ -158,7 +158,19 @@ class SettingsTab(Tab):
         self.txt_lamp_voltage_value = QLineEdit(left_panel)
         self.txt_lamp_voltage_value.setText("11")
         self.txt_lamp_voltage_value.setStyleSheet("QLineEdit { font-size:16px; };")
-        self.txt_lamp_voltage_value.setGeometry(250, 350, 60, 40)
+        self.txt_lamp_voltage_value.setGeometry(250, 360, 60, 40)
+
+        self.checkbox_lamp_switch = QCheckBox("Lamp", left_panel)
+        self.checkbox_lamp_switch.setGeometry(20, 430, 180, 40)
+        # self.checkbox_auto_exposure.setStyleSheet("border: 1px solid #444444;")
+
+        self.checkbox_auto_exposure = QCheckBox("Auto-Exposure", left_panel)
+        self.checkbox_auto_exposure.setGeometry(20, 470, 180, 40)
+        # self.checkbox_auto_exposure.setStyleSheet("border: 1px solid #444444;")
+
+        self.checkbox_inverted_image = QCheckBox("Inverted Image", left_panel)
+        self.checkbox_inverted_image.setGeometry(20, 510, 180, 40)
+        # self.checkbox_inverted.setStyleSheet("border: 1px solid #444444;")s
 
         line_separator2 = QFrame(left_panel)
         line_separator2.setGeometry(0, 420, 400, 1)
@@ -208,17 +220,18 @@ class SettingsTab(Tab):
         self.txt_move_z.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_move_z.setGeometry(130, 400, 60, 40)
 
-        self.checkbox_lamp_switch = QCheckBox("Lamp", right_panel)
-        self.checkbox_lamp_switch.setGeometry(10, 450, 180, 40)
-        # self.checkbox_auto_exposure.setStyleSheet("border: 1px solid #444444;")
+        self.label_position_x = QLabel(f"X (μm):    {int(microscope.stage.x)}", right_panel)
+        self.label_position_x.setGeometry(20, 450, 180, 40)
+        self.label_position_x.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
-        self.checkbox_auto_exposure = QCheckBox("Auto-Exposure", right_panel)
-        self.checkbox_auto_exposure.setGeometry(10, 480, 180, 40)
-        # self.checkbox_auto_exposure.setStyleSheet("border: 1px solid #444444;")
+        self.label_position_y = QLabel(f"Y (μm):    {int(microscope.stage.y)}", right_panel)
+        self.label_position_y.setGeometry(20, 480, 180, 40)
+        self.label_position_y.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
-        self.checkbox_inverted_image = QCheckBox("Inverted Image", right_panel)
-        self.checkbox_inverted_image.setGeometry(10, 510, 180, 40)
-        # self.checkbox_inverted.setStyleSheet("border: 1px solid #444444;")s
+        self.label_position_z = QLabel(f"Z (μm):    {int(microscope.stage.z)}", right_panel)
+        self.label_position_z.setGeometry(20, 510, 180, 40)
+        self.label_position_z.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
 
         line_separator2 = QFrame(right_panel)
         line_separator2.setGeometry(200, 300, 1, 400)
@@ -336,7 +349,7 @@ class SettingsTab(Tab):
         self.islive = True
         controller.start_continuous_sequence_acquisition(0)
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_image)
+        self.timer.timeout.connect(self.read_image_buffer)
         self.timer.start(100)
 
     def stop_live_view(self):
@@ -349,7 +362,7 @@ class SettingsTab(Tab):
         self.live_image.setPixmap(self.image)
         self.logger.log("live preview stopped")
 
-    def update_image(self):
+    def read_image_buffer(self):
         try:
             remaining_images = controller.get_remaining_image_count()
             if remaining_images > 0:
@@ -368,6 +381,11 @@ class SettingsTab(Tab):
                 qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
                 pixmap = QPixmap.fromImage(qimage)
                 self.live_image.setPixmap(pixmap)
+
+                self.label_position_x.setText(f"X (μm):    {int(microscope.stage.x)}")
+                self.label_position_y.setText(f"Y (μm):    {int(microscope.stage.y)}")
+                self.label_position_z.setText(f"Z (μm):    {int(microscope.stage.z)}")
+
             else:
                 print("Circular buffer is empty, waiting for images...")
                 sleep(0.1)
@@ -375,6 +393,11 @@ class SettingsTab(Tab):
         except Exception as e:
             print(f"Error retrieving image: {e}")
             sleep(0.5)
+
+        # finally:
+        #     self.label_position_x.setText(f"X (μm):    {int(microscope.stage.x)}")
+        #     self.label_position_y.setText(f"Y (μm):    {int(microscope.stage.y)}")
+        #     self.label_position_z.setText(f"Z (μm):    {int(microscope.stage.z)}")
 
     def update(self):
         pass

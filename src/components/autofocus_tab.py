@@ -135,6 +135,7 @@ class AutofocusTab(Tab):
         plt.xlabel('Image')
         plt.ylabel('Variance')
         plt.savefig(path)
+        plt.close()
         self.plot_var = QPixmap(path)
         self.img_var.setPixmap(self.plot_var)
         self.img_bf.repaint()
@@ -193,6 +194,7 @@ class AutofocusTab(Tab):
             self.txt_zfocus.setText(str(zfocus))
             
             state_manager.set('ZFOCUS', zfocus)
+            print(">>> ZFOCUS", state_manager.get('ZFOCUS'), zfocus)
 
             self.handle_capture_image(microscope.focus_strategy.focused_image)
             self.handle_variance_plot()

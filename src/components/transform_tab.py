@@ -24,13 +24,6 @@ class TransformTab(Tab):
         self.connect_signals()
         os.makedirs(f"Autofocus/transform", exist_ok=True)
 
-    def preprocess(self):
-        state_manager.set('LAMP', True)
-        microscope.move_stage(0, 0, state_manager.get('ZFOCUS'))
-
-    def postprocess(self):
-        state_manager.set('LAMP', False)
-
     def init_ui(self):
         tab_layout = QHBoxLayout()
         
@@ -148,12 +141,25 @@ class TransformTab(Tab):
 
         tab_layout.addWidget(frame_tab)
         self.setLayout(tab_layout)
-
+    
     def connect_signals(self):
         self.btn_run.clicked.connect(self.transform)
         self.checkbox_shift.clicked.connect(self.handle_manual_shift)
         self.txt_shift_x.textChanged.connect(self.handle_stage_shift)
         self.txt_shift_x.textChanged.connect(self.handle_stage_shift)
+
+    def preprocess(self):
+        state_manager.set('LAMP', True)
+        microscope.stage.move(microscope.stage.x, microscope.stage.y, state_manager.get('ZFOCUS'))
+
+    def postprocess(self):
+        state_manager.set('LAMP', False)
+        microscope.stage.move(microscope.stage.x - self.stage_to_camera_width, 
+                              microscope.stage.y - self.stage_to_camera_height, 
+                              state_manager.get('ZFOCUS'))
+
+    def update(self):
+        pass
 
     def handle_manual_shift(self):
         checked = self.checkbox_shift.isChecked()
@@ -171,13 +177,8 @@ class TransformTab(Tab):
         else:
             self.logger.log("Not a valid stage position value")        
 
-    def update(self):
-        pass
-
     def transform(self):
         self.preprocess()
-        stage_shift_x = self.stage_to_camera_width
-        stage_shift_y = self.stage_to_camera_height
 
         img1 = "Autofocus/transform/image-1.tif"
         img2 = "Autofocus/transform/image-2.tif"
@@ -196,7 +197,7 @@ class TransformTab(Tab):
         x = microscope.stage.x
         y = microscope.stage.y
 
-        microscope.move_stage(stage_shift_x, stage_shift_y,0)
+        microscope.move_stage(self.stage_to_camera_width, self.stage_to_camera_height, 0)
         time.sleep(2)
         img = microscope.snap_image()
         img = microscope.snap_image()
@@ -215,7 +216,6 @@ class TransformTab(Tab):
         self.img2.setPixmap(self.image2)
 
         stage_shift_x = microscope.stage.x - x
-        stage_shift_y = microscope.stage.y - y
 
         image1 = cv2.imread(img1, cv2.IMREAD_GRAYSCALE) 
         image2 = cv2.imread(img2, cv2.IMREAD_GRAYSCALE)
@@ -245,6 +245,7 @@ class TransformTab(Tab):
         plt.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.savefig("Autofocus/transform/overlap.png")
+        plt.close()
         self.overlap_image = QPixmap("Autofocus/transform/overlap.png")
         self.img_overlap.setPixmap(self.overlap_image)
 
