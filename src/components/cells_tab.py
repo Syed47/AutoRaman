@@ -3,8 +3,10 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 
 from components.tab import Tab
+from components.messagebox import MessageBox
 from components.state import state_manager
 from core.microscope import microscope
+from core.base_cell_identifier import CellPose
 
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -26,6 +28,7 @@ class CellsTab(Tab):
             'nuclei': False,
             'custom': False
         }
+        self.cellpose = CellPose()
         self.init_ui()
         self.connect_signals()
 
@@ -149,53 +152,45 @@ class CellsTab(Tab):
     def identify(self):
 
         if not self.checkbox_cyto.isChecked() and not self.checkbox_nuclei.isChecked():
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setText("Please select at least one checkbox (cytoplasm or nuclei) to proceed.")
-            msg_box.setWindowTitle("AutoRaman")
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.exec_() 
+            MessageBox(text="Please select at least one checkbox (cytoplasm or nuclei) to proceed.",
+                       icon=QMessageBox.Warning)
             return
 
         if microscope.focus_strategy is None:
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setText("Please run the Autofocus routine before continuing.")
-            msg_box.setWindowTitle("AutoRaman")
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.exec_() 
+            MessageBox(text="Please run the Autofocus routine before continuing.",
+                       icon=QMessageBox.Warning)
             return
 
-        img = imread(microscope.focus_strategy.focused_image)
-        # plt.imshow(img, cmap='gray')
-        self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
+        input_img = microscope.focus_strategy.focused_image
+        output_img = "Autofocus/plots/segmentation.png"
+
+        img = imread(input_img)
+        self.plot_bf = QPixmap(input_img)
         self.img_bf.setPixmap(self.plot_bf)
 
-        cyto_model, nuclei_model = None, None
+        models = []
 
         if self.checkbox_cyto.isChecked():
-            cyto_model = models.Cellpose(gpu=False, model_type='cyto')
-            cyto_mask, cyto_flows, cyto_styles, cyto_diams = cyto_model.eval(
-                img, diameter=self.diameter, channels=[0, 0], flow_threshold=self.threshold, do_3D=False)
-            plt.imshow(cyto_mask, cmap='jet', alpha=0.5)
+            models.append('cyto')
         if self.checkbox_nuclei.isChecked():
-            nuclei_model = models.Cellpose(gpu=False, model_type='nuclei')
-            nuclei_mask, nuclei_flows, nuclei_styles, nuclei_diams = nuclei_model.eval(
-                img, diameter=self.diameter, channels=[0, 0], flow_threshold=self.threshold, do_3D=False)
-            plt.imshow(nuclei_mask, cmap='cool', alpha=0.5)
-            unique_nuclei = np.unique(nuclei_mask)
+            models.append('nuclei')
+        
+        cyto_mask, nuclei_mask, nuclei_centre = self.cellpose.identify(img, self.diameter, self.threshold, models)
 
-            for nucleus in unique_nuclei:
-                if nucleus == 0:
-                    continue
-                nucleus_mask = nuclei_mask == nucleus
-                centroid = center_of_mass(nucleus_mask)
-                plt.plot(centroid[1], centroid[0], 'ro', markersize=2)
+        plt.imshow(img, cmap='gray')
+        
+        if cyto_mask is not None:
+            plt.imshow(cyto_mask, cmap='jet', alpha=0.5)
+
+        if nuclei_mask is not None:
+            plt.imshow(nuclei_mask, cmap='cool', alpha=0.5)
+            for nuclei in nuclei_centre:
+                plt.plot(nuclei[1], nuclei[0], 'ro', markersize=3)
 
         plt.axis('off')
-        plt.savefig("Autofocus/plots/segmentation.png", bbox_inches='tight', pad_inches=0)
+        plt.savefig(output_img, bbox_inches='tight', pad_inches=0)
         plt.close()
 
-        self.plot_seg = QPixmap("Autofocus/plots/segmentation.png")
+        self.plot_seg = QPixmap(output_img)
         self.img_seg.setPixmap(self.plot_seg)
 
