@@ -36,3 +36,4 @@ for nucleus in unique_nuclei:
 plt.title('Segmentation with Nuclei Centers')
 plt.axis('off')
 plt.show()
+plt.close()

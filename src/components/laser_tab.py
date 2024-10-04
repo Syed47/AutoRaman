@@ -90,7 +90,7 @@ class LaserTab(Tab):
         line_separator2.setFrameShadow(QFrame.Sunken)
 
         self.btn_run = QPushButton("Run", left_panel)
-        self.btn_run.setGeometry(20, 320, 280, 40)
+        self.btn_run.setGeometry(80, 320, 160, 40)
         
         line_separator2 = QFrame(left_panel)
         line_separator2.setGeometry(0, 380, 400, 1)

@@ -244,7 +244,7 @@ class TransformTab(Tab):
         plt.imshow(blended_image)
         plt.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        plt.savefig("Autofocus/transform/overlap.png")
+        plt.savefig("Autofocus/transform/overlap.png", bbox_inches='tight', pad_inches=0)
         plt.close()
         self.overlap_image = QPixmap("Autofocus/transform/overlap.png")
         self.img_overlap.setPixmap(self.overlap_image)

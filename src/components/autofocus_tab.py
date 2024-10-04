@@ -80,7 +80,7 @@ class AutofocusTab(Tab):
         line_separator2.setFrameShadow(QFrame.Sunken)
 
         self.btn_run = QPushButton("Run", left_panel)
-        self.btn_run.setGeometry(20, 360, 280, 40)
+        self.btn_run.setGeometry(80, 360, 160, 40)
 
         line_separator2 = QFrame(left_panel)
         line_separator2.setGeometry(0, 440, 400, 1)
@@ -123,9 +123,9 @@ class AutofocusTab(Tab):
 
     def connect_signals(self):
         self.btn_run.clicked.connect(self.start_autofocus)
-        self.txt_start.textChanged.connect(lambda val: state_manager.set('ZSTART', (int(val) if val.isdigit() else None) ))
-        self.txt_end.textChanged.connect(lambda val: state_manager.set('ZEND', (int(val) if val.isdigit() else None)))
-        self.txt_step.textChanged.connect(lambda val: state_manager.set('ZSTEP', (int(val) if val.isdigit() else None)))
+        self.txt_start.textChanged.connect(lambda val: state_manager.set('ZSTART', (int(val) if val.isdigit() else 1000) ))
+        self.txt_end.textChanged.connect(lambda val: state_manager.set('ZEND', (int(val) if val.isdigit() else 1000)))
+        self.txt_step.textChanged.connect(lambda val: state_manager.set('ZSTEP', (int(val) if val.isdigit() else 1)))
     
     def handle_variance_plot(self, path="Autofocus/plots/variance.png"):
         variance = microscope.focus_strategy.capture_scores

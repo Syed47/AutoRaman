@@ -5,7 +5,7 @@ from components.settings_tab import SettingsTab
 from components.autofocus_tab import AutofocusTab
 from components.laser_tab import LaserTab
 from components.transform_tab import TransformTab
-# from components.cells_tab import CellsTab
+from components.cells_tab import CellsTab
 # from components.spectra_tab import SpectraTab
 # from components.repeat_tab import RepeatTab
 # from components.optimise_tab import OptimiseTab
@@ -44,10 +44,10 @@ class MainWindow(QWidget):
         tab_widget.addTab(self.laser_tab, 'Laser')
 
         self.transform_tab = TransformTab(self.logger)
-        tab_widget.addTab(self.transform_tab, 'Transform Tab')
+        tab_widget.addTab(self.transform_tab, 'Transform')
 
-        # self.cells_tab = CellsTab(self.logger)
-        # tab_widget.addTab(self.cells_tab, 'Cells')
+        self.cells_tab = CellsTab(self.logger)
+        tab_widget.addTab(self.cells_tab, 'Cells')
 
         # self.spectra_tab = SpectraTab(self.logger)
         # tab_widget.addTab(self.spectra_tab, 'Spectra')

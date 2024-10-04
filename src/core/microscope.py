@@ -18,6 +18,7 @@ class Microscope:
             self.camera: ICamera = Camera()
             self.stage: Stage = Stage()
             self.lamp: Lamp = Lamp()
+            self.focus_strategy = None
             self._initialized = True 
 
     def snap_image(self):
