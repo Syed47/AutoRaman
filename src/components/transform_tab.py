@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QFileDialog, QWidget, QHBoxLayout, QGridLayout, QVBoxLayout, QFrame, QSlider, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton
-from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtWidgets import QApplication, QFileDialog, QWidget, QHBoxLayout, QGridLayout, QVBoxLayout, QFrame, QSlider, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton
+from PyQt5.QtGui import QPixmap, QCursor
+from PyQt5.QtCore import Qt
 
 from components.tab import Tab
 from core.microscope import microscope
@@ -143,7 +143,7 @@ class TransformTab(Tab):
         self.setLayout(tab_layout)
     
     def connect_signals(self):
-        self.btn_run.clicked.connect(self.transform)
+        self.btn_run.clicked.connect(self.handle_transform)
         self.checkbox_shift.clicked.connect(self.handle_manual_shift)
         self.txt_shift_x.textChanged.connect(self.handle_stage_shift)
         self.txt_shift_x.textChanged.connect(self.handle_stage_shift)
@@ -176,6 +176,11 @@ class TransformTab(Tab):
             self.stage_to_camera_height = int(stage_y) * -1
         else:
             self.logger.log("Not a valid stage position value")        
+
+    def handle_transform(self):
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        self.transform()
+        QApplication.restoreOverrideCursor()
 
     def transform(self):
         self.preprocess()

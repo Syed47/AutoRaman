@@ -37,6 +37,7 @@ StyleSheet = """
     QPushButton:hover {
         background-color: #45a049; /* Darker green on hover */
     }
+    
 
     /* Styling for QLabel */
     QLabel {

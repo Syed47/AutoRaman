@@ -1,15 +1,16 @@
-from PyQt5.QtWidgets import QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton, QCheckBox, QSlider, QMessageBox
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtWidgets import QApplication, QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton, QCheckBox, QSlider, QMessageBox
+from PyQt5.QtGui import QPixmap, QCursor
 from PyQt5.QtCore import Qt
 
+
+import os
 from components.tab import Tab
 from components.messagebox import MessageBox
 from components.state import state_manager
 from core.microscope import microscope
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 from core.base_cell_identifier import CellPose
 
-import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import numpy as np
 import json
 from cellpose import models
@@ -117,7 +118,7 @@ class CellsTab(Tab):
         self.setLayout(tab_layout)
 
     def connect_signals(self):
-        self.btn_run.clicked.connect(self.identify)
+        self.btn_run.clicked.connect(self.handle_identification)
         self.txt_diameter.textChanged.connect(self.set_diameter)
         self.slider_conf_threshold.valueChanged.connect(self.change_conf_threshold)
         self.checkbox_cyto.stateChanged.connect(self.handle_models)
@@ -149,6 +150,11 @@ class CellsTab(Tab):
         self.models['custom'] = self.checkbox_custom.isChecked()
         self.logger.log(json.dumps(self.models, indent=4))
 
+    def handle_identification(self):
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        self.identify()
+        QApplication.restoreOverrideCursor()
+
     def identify(self):
 
         if not self.checkbox_cyto.isChecked() and not self.checkbox_nuclei.isChecked():
@@ -160,32 +166,31 @@ class CellsTab(Tab):
             MessageBox(text="Please run the Autofocus routine before continuing.",
                        icon=QMessageBox.Warning)
             return
-
+        
+        
         input_img = microscope.focus_strategy.focused_image
         output_img = "Autofocus/plots/segmentation.png"
 
         img = imread(input_img)
         self.plot_bf = QPixmap(input_img)
         self.img_bf.setPixmap(self.plot_bf)
-
-        models = []
-
-        if self.checkbox_cyto.isChecked():
-            models.append('cyto')
-        if self.checkbox_nuclei.isChecked():
-            models.append('nuclei')
-        
-        cyto_mask, nuclei_mask, nuclei_centre = self.cellpose.identify(img, self.diameter, self.threshold, models)
-
         plt.imshow(img, cmap='gray')
-        
-        if cyto_mask is not None:
-            plt.imshow(cyto_mask, cmap='jet', alpha=0.5)
 
-        if nuclei_mask is not None:
-            plt.imshow(nuclei_mask, cmap='cool', alpha=0.5)
-            for nuclei in nuclei_centre:
-                plt.plot(nuclei[1], nuclei[0], 'ro', markersize=3)
+        model = []
+        if self.checkbox_cyto.isChecked():
+            model.append('cyto')
+        if self.checkbox_nuclei.isChecked():
+            model.append('nuclei')
+
+        cyto, nuclei = self.cellpose.identify(img, self.diameter, self.threshold, model)
+
+        if cyto is not None:
+            plt.imshow(cyto, cmap='jet', alpha=0.5)
+
+        if nuclei is not None:
+            plt.imshow(nuclei[0], cmap='cool', alpha=0.5)
+            for nucleus in nuclei[1]:
+                plt.plot(nucleus[1], nucleus[0], 'ro', markersize=3)
 
         plt.axis('off')
         plt.savefig(output_img, bbox_inches='tight', pad_inches=0)
@@ -193,4 +198,5 @@ class CellsTab(Tab):
 
         self.plot_seg = QPixmap(output_img)
         self.img_seg.setPixmap(self.plot_seg)
+
 

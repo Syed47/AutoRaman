@@ -1,5 +1,6 @@
-from PyQt5.QtWidgets import QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton, QRadioButton
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtWidgets import QApplication, QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton, QRadioButton
+from PyQt5.QtGui import QPixmap, QCursor
+from PyQt5.QtCore import Qt
 
 from components.tab import Tab
 from components.state import state_manager
@@ -122,7 +123,7 @@ class AutofocusTab(Tab):
         self.setLayout(tab_layout)
 
     def connect_signals(self):
-        self.btn_run.clicked.connect(self.start_autofocus)
+        self.btn_run.clicked.connect(self.handle_autofocus)
         self.txt_start.textChanged.connect(lambda val: state_manager.set('ZSTART', (int(val) if val.isdigit() else 1000) ))
         self.txt_end.textChanged.connect(lambda val: state_manager.set('ZEND', (int(val) if val.isdigit() else 1000)))
         self.txt_step.textChanged.connect(lambda val: state_manager.set('ZSTEP', (int(val) if val.isdigit() else 1)))
@@ -157,6 +158,11 @@ class AutofocusTab(Tab):
     #     self.img_bf.setPixmap(pixmap)
     #     self.img_bf.repaint()
         
+    def handle_autofocus(self):
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        self.start_autofocus()
+        QApplication.restoreOverrideCursor()
+
     def start_autofocus(self):
         self.preprocess()
         self.logger.log("autofocus")

@@ -1,5 +1,6 @@
-from PyQt5.QtWidgets import QHBoxLayout, QFrame, QLabel, QCheckBox, QLineEdit, QPushButton
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import QApplication, QHBoxLayout, QFrame, QLabel, QCheckBox, QLineEdit, QPushButton
+from PyQt5.QtGui import QPixmap, QCursor
+from PyQt5.QtCore import Qt
 
 from components.tab import Tab
 from components.state import state_manager
@@ -152,7 +153,7 @@ class LaserTab(Tab):
         self.setLayout(tab_layout)
 
     def connect_signals(self):
-        self.btn_run.clicked.connect(self.start_laser_focus)
+        self.btn_run.clicked.connect(self.handle_laser_autofocus)
         self.checkbox_offset.clicked.connect(self.handle_manual_offset)
         self.txt_start.textChanged.connect(lambda val: state_manager.set('ZSTART', (int(val) if val.isdigit() else None) ))
         self.txt_end.textChanged.connect(lambda val: state_manager.set('ZEND', (int(val) if val.isdigit() else None)))
@@ -185,6 +186,11 @@ class LaserTab(Tab):
         self.plot_bf = QPixmap(capture_path)
         self.img_bf.setPixmap(self.plot_bf)
         self.img_bf.repaint()
+
+    def handle_laser_autofocus(self):
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        self.start_autofocus()
+        QApplication.restoreOverrideCursor()
 
     def start_laser_focus(self):
         self.preprocess()

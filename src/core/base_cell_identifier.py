@@ -40,25 +40,24 @@ class CellPose(ICellIdentifier):
             image, diameter=diameter, channels=[0, 0], flow_threshold=threshold, do_3D=False)
         
         unique_nuclei = np.unique(nuclei_mask)
-
+        centroids = []
         for nucleus in unique_nuclei:
             if nucleus == 0:
                 continue
             nucleus_mask = nuclei_mask == nucleus
             centroid = center_of_mass(nucleus_mask)
+            centroids.append(centroid)
 
-        return nuclei_mask, centroid
-
+        return nuclei_mask, centroids
 
     def identify(self, image: np.ndarray, diameter: int = 100, threshold: int = 0.8, model: list = ['cyto', 'nuclei']):
+        cyto_result = None
+        nuclei_result = None
 
-        if 'cyto' in model and 'nuclei' in model:
-            return self.identify_cells(image, diameter, threshold), self.identify_nuclei(image, diameter, threshold)
+        if 'cyto' in model:
+            cyto_result = self.identify_cells(image, diameter, threshold)
+        
+        if 'nuclei' in model:
+            nuclei_result = self.identify_nuclei(image, diameter, threshold)
 
-        elif 'cyto' in model:
-            return self.identify_cells(image, diameter, threshold)
-        
-        elif 'nuclei' in model:
-            return self.identify_nuclei(image, diameter, threshold)
-        
-        return None
+        return cyto_result, nuclei_result
