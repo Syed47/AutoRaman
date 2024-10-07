@@ -282,7 +282,10 @@ class SettingsTab(Tab):
         # button_layout_widget.setStyleSheet(""" QWidget { border: 1px solid #444444; } QPushButton { border: none; }""")
 
         self.btn_live = QPushButton("Live Preview", right_panel)
-        self.btn_live.setGeometry(245, 490, 140, 40)
+        self.btn_live.setGeometry(245, 460, 140, 40)
+
+        self.btn_capture = QPushButton("Capture & Use", right_panel)
+        self.btn_capture.setGeometry(245, 510, 140, 40)
 
         frame_tab_layout.addWidget(left_panel)
         frame_tab_layout.addWidget(right_panel)

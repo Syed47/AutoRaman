@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton, QCheckBox, QSlider, QMessageBox
-from PyQt5.QtGui import QPixmap, QCursor
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QCursor, QPainter, QColor
+from PyQt5.QtCore import Qt, QPoint
 
 
 import os
@@ -17,6 +17,27 @@ from cellpose import models
 from cellpose.io import imread
 import matplotlib.pyplot as plt
 from scipy.ndimage import center_of_mass
+
+
+class InteractiveImage(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.points = [] 
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            pos = event.pos() 
+            self.points.append(pos)
+            self.update() 
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+
+        painter = QPainter(self)
+        painter.setPen(QColor(255, 0, 0)) 
+
+        for point in self.points:
+            painter.drawEllipse(point, 2, 2) 
 
 
 class CellsTab(Tab):
@@ -79,7 +100,7 @@ class CellsTab(Tab):
         # self.checkbox_nuclei.setChecked(True)
         self.checkbox_nuclei.setGeometry(20, 200, 240, 40)
 
-        self.checkbox_custom = QCheckBox("Peak-Local-Max Model", left_panel)
+        self.checkbox_custom = QCheckBox("Manual Selection", left_panel)
         self.checkbox_custom.setGeometry(20, 240, 240, 40)
 
         line_separator2 = QFrame(left_panel)
@@ -90,12 +111,12 @@ class CellsTab(Tab):
         self.btn_run = QPushButton("Identify", left_panel)
         self.btn_run.setGeometry(80, 320, 160, 40)
 
-        right_panel = QFrame()
-        right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
-        right_panel.setFixedSize(420, 540)
+        self.right_panel = QFrame()
+        self.right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
+        self.right_panel.setFixedSize(420, 540)
 
         self.plot_bf = QPixmap("components/microscope.png")
-        self.img_bf = QLabel(right_panel)
+        self.img_bf = InteractiveImage(self.right_panel)
         self.img_bf.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_bf.setPixmap(self.plot_bf)
         self.img_bf.setFixedSize(380, 260)
@@ -103,7 +124,7 @@ class CellsTab(Tab):
         self.img_bf.setScaledContents(True)
 
         self.plot_seg = QPixmap("components/bar-chart.png")
-        self.img_seg = QLabel(right_panel)
+        self.img_seg = QLabel(self.right_panel)
         self.img_seg.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_seg.setPixmap(self.plot_seg)
         self.img_seg.setFixedSize(380, 260)
@@ -111,7 +132,7 @@ class CellsTab(Tab):
         self.img_seg.setScaledContents(True)
 
         frame_tab_layout.addWidget(left_panel)
-        frame_tab_layout.addWidget(right_panel)
+        frame_tab_layout.addWidget(self.right_panel)
         frame_tab.setLayout(frame_tab_layout)
 
         tab_layout.addWidget(frame_tab)
@@ -123,7 +144,7 @@ class CellsTab(Tab):
         self.slider_conf_threshold.valueChanged.connect(self.change_conf_threshold)
         self.checkbox_cyto.stateChanged.connect(self.handle_models)
         self.checkbox_nuclei.stateChanged.connect(self.handle_models)
-        self.checkbox_custom.stateChanged.connect(self.handle_models)
+        self.checkbox_custom.stateChanged.connect(self.handle_manual_selection)
 
     def preprocess(self):
         return super().preprocess()
@@ -132,8 +153,16 @@ class CellsTab(Tab):
         return super().postprocess()
     
     def update(self):
-        return super().update()
-    
+        pass
+        # if self.is_active():
+        #     if microscope.focus_strategy is not None:
+        #         input_img = microscope.focus_strategy.focused_image
+        #         self.plot_bf = QPixmap(input_img)
+        #         self.img_bf.setPixmap(self.plot_bf)
+        # else:
+        #     self.plot_bf = QPixmap("components/microscope.png")
+        #     self.img_bf.setPixmap(self.plot_bf)
+
     def set_diameter(self, val):
         self.diameter = int(val) if val.isdigit() else 100
         self.txt_diameter.setText(str(self.diameter))
@@ -144,6 +173,27 @@ class CellsTab(Tab):
         self.slider_conf_threshold.setValue(val)
         self.logger.log("Threshold:" + str(self.threshold))
 
+    def handle_manual_selection(self):
+        print("step 1")
+        if microscope.focus_strategy is not None:
+            if self.checkbox_custom.isChecked():
+                print("step 2")
+                self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
+                self.img_bf = InteractiveImage(self.right_panel) 
+                self.img_bf.setPixmap(self.plot_bf)
+                self.img_bf.setGeometry(20, 5, 380, 260)
+                self.img_bf.setFixedSize(380, 260)
+                self.img_bf.setScaledContents(True)
+                self.img_bf.show()
+
+            self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
+            self.img_bf.setPixmap(self.plot_bf)
+            self.img_bf.repaint()
+        else:
+            self.plot_bf = QPixmap("components/microscope.png")
+            self.img_bf.setPixmap(self.plot_bf)
+            self.img_bf.repaint()
+        
     def handle_models(self):
         self.models['cyto'] = self.checkbox_cyto.isChecked()
         self.models['nuclei'] = self.checkbox_nuclei.isChecked()
