@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QApplication, QHBoxLayout, QFrame, QLabel, QCheckBox, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QApplication, QHBoxLayout, QFrame, QLabel, QCheckBox, QLineEdit, QPushButton, QRadioButton
 from PyQt5.QtGui import QPixmap, QCursor
 from PyQt5.QtCore import Qt
 
@@ -6,10 +6,11 @@ from components.tab import Tab
 from components.state import state_manager
 from core.microscope import microscope
 import matplotlib.pyplot as plt
-from core.autofocus import Laser
+from core.autofocus import Laser, Manual
 
 import tifffile as tiff
 import numpy as np
+import os, re
 
 class LaserTab(Tab):
     def __init__(self, logger=None):
@@ -39,7 +40,7 @@ class LaserTab(Tab):
         
         left_panel = QFrame()
         left_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")  
-        left_panel.setFixedSize(320, 540)
+        left_panel.setFixedSize(300, 540)
         
         line_label1 = QLabel("Start (μm):", left_panel)
         line_label1.setGeometry(40, 20, 100, 40)
@@ -82,7 +83,7 @@ class LaserTab(Tab):
         self.txt_offset.setGeometry(160, 245, 100, 40)
         self.txt_offset.setReadOnly(True)
         self.checkbox_offset = QCheckBox("Edit", left_panel)
-        self.checkbox_offset.setGeometry(140, 205, 160, 40)
+        self.checkbox_offset.setGeometry(140, 205, 120, 40)
         self.checkbox_offset.setChecked(False)
         
         line_separator2 = QFrame(left_panel)
@@ -90,8 +91,12 @@ class LaserTab(Tab):
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
 
+
+        self.radio_manual = QRadioButton("Manual", left_panel)
+        self.radio_manual.setGeometry(20, 320, 120, 40)
+
         self.btn_run = QPushButton("Run", left_panel)
-        self.btn_run.setGeometry(80, 320, 160, 40)
+        self.btn_run.setGeometry(160, 320, 100, 40)
         
         line_separator2 = QFrame(left_panel)
         line_separator2.setGeometry(0, 380, 400, 1)
@@ -127,22 +132,22 @@ class LaserTab(Tab):
 
         right_panel = QFrame()
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")  
-        right_panel.setFixedSize(420, 540)
+        right_panel.setFixedSize(440, 560)
 
         self.plot_bf = QPixmap("components/microscope.png")
         self.img_bf = QLabel(right_panel)
         self.img_bf.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_bf.setPixmap(self.plot_bf)
-        self.img_bf.setFixedSize(380, 260)
-        self.img_bf.setGeometry(20, 5, 380, 260)
+        self.img_bf.setFixedSize(420, 280)
+        self.img_bf.setGeometry(10, 0, 420, 280)
         self.img_bf.setScaledContents(True)
 
         self.plot_intensity_score = QPixmap("components/bar-chart.png")
         self.img_var = QLabel(right_panel)
         self.img_var.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_var.setPixmap(self.plot_intensity_score)
-        self.img_var.setFixedSize(380, 260)
-        self.img_var.setGeometry(20, 275, 380, 260)
+        self.img_var.setFixedSize(420, 280)
+        self.img_var.setGeometry(10, 280, 420, 280)
         self.img_var.setScaledContents(True)
 
         frame_tab_layout.addWidget(left_panel)
@@ -183,14 +188,27 @@ class LaserTab(Tab):
         self.img_var.setPixmap(self.plot_intensity_score)
 
     def handle_capture_image(self, capture_path):
+        print("Displaying >>>", capture_path)
         self.plot_bf = QPixmap(capture_path)
         self.img_bf.setPixmap(self.plot_bf)
         self.img_bf.repaint()
 
+    def handle_manual_focus(self):
+        path = "Autofocus/snaps"
+        snaps = [os.path.join(path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        if not snaps:
+            return None, None
+        last_snapped_image = os.path.basename(max(snaps, key=os.path.getmtime)) # last captured image
+        match = re.search(r'_(\d+).tif$', last_snapped_image)  
+        if match:
+            zvalue = match.group(1)
+            return f"{path}/{last_snapped_image}", int(zvalue) 
+        return None, None    
+
     def handle_laser_autofocus(self):
-        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
-        self.start_autofocus()
-        QApplication.restoreOverrideCursor()
+        # QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        self.start_laser_focus()
+        # QApplication.restoreOverrideCursor()
 
     def start_laser_focus(self):
         self.preprocess()
@@ -210,18 +228,23 @@ class LaserTab(Tab):
         if step <= 0:
             self.logger.log("Error: Step value must be greater than zero.")
             return
-
-        laserfocus = microscope.auto_focus(Laser, start, end, step, self.handle_capture_image)
+        
+        manual = self.radio_manual.isChecked()
+        laserfocus = None
+        if not manual:
+            laserfocus = microscope.auto_focus(Laser, start, end, step, self.handle_capture_image)
+        else:
+            laserfocus = microscope.auto_focus(Manual, start, end, step, self.handle_manual_focus)        
  
         if laserfocus is not None:
             self.logger.log(f"Laser focus distance: {laserfocus}")
             
-            image_array = np.array(tiff.imread(microscope.focus_strategy.focused_image))
+            image = np.array(tiff.imread(microscope.focus_strategy.focused_image))
 
-            if len(image_array.shape) > 2:
-                image_array = np.mean(image_array, axis=-1) 
+            if len(image.shape) > 2:
+                image = np.mean(image, axis=-1) 
 
-            y, x = np.unravel_index(np.argmax(image_array), image_array.shape)
+            y, x = np.unravel_index(np.argmax(image), image.shape)
 
             print(f"The best focused image is: {microscope.focus_strategy.focused_image}")
             print(f"Bright spot is at  ({x}, {y})")
@@ -230,11 +253,13 @@ class LaserTab(Tab):
             self.txt_z.setText(str(laserfocus))
             
             state_manager.set('LASER-FOCUS', laserfocus)
-            state_manager.set('LASER-OFFSET', state_manager.get('LASER-FOCUS') - state_manager.get('ZFOCUS'))
-            self.txt_offset.setText(str(state_manager.get('LASER-OFFSET')))
+            if state_manager.get('ZFOCUS') is not None:
+                state_manager.set('LASER-OFFSET', state_manager.get('LASER-FOCUS') - state_manager.get('ZFOCUS'))
+                self.txt_offset.setText(str(state_manager.get('LASER-OFFSET')))
 
             self.handle_capture_image(microscope.focus_strategy.focused_image)
-            self.plot_intensity_scores()
+            if not manual:
+                self.plot_intensity_scores()
         else:
             self.logger.log("Error: Laser focus failed. Please check the settings and try again.")
         

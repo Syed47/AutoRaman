@@ -61,12 +61,23 @@ class Autofocus(ABC):
             except Exception as e:
                 print(f"Error capturing at z={z_val}: {e}")
 
-        self.stage.move(z=self.start)
+        # self.stage.move(z=self.start)
 
     @abstractmethod
     def focus(self, start: int, end: int, step: int, callback=None) -> float:
         pass
 
+# Placeholder class for manually setting autofocus using a precaptured image
+class Manual(Autofocus):
+    def __init__(self, camera, stage, lamp, image_dir=""):
+        super().__init__(camera, stage, lamp, image_dir)
+
+    def focus(self, start: int, end: int, step: int, callback=None) -> float:
+        image, distance =  callback()
+        print(image, distance)
+        self.focused_image = image
+        self.focus_distance = distance
+        return self.focus_distance
 
 class Amplitude(Autofocus):
     def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="images"):

@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QFileDialog, QWidget, QHBoxLayout, QGridLayout, QFrame, QSlider, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton
-from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtWidgets import QMessageBox, QFileDialog, QWidget, QHBoxLayout, QGridLayout, QFrame, QSlider, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton
+from PyQt5.QtGui import QPixmap, QImage, QIcon
+from PyQt5.QtCore import Qt, QTimer, QSize
 
 from components.tab import Tab
 from core.microscope import microscope
@@ -11,10 +11,14 @@ from numpy import max
 from time import sleep
 
 import cv2
+import matplotlib.pyplot as plt
+import tifffile as tiff
 
 class SettingsTab(Tab):
     def __init__(self, logger=None):
         super().__init__(logger)
+        self.last_tagged_image = None
+        self.snaped_image = None
         self.preprocess()
         self.init_ui()
         self.connect_signals()
@@ -33,6 +37,7 @@ class SettingsTab(Tab):
 
     def connect_signals(self):
         self.btn_live.clicked.connect(self.live_preview)
+        self.btn_capture.clicked.connect(self.snap_image)
         self.btn_left.clicked.connect(lambda : microscope.move_stage(x=-self.xstep))
         self.btn_right.clicked.connect(lambda : microscope.move_stage(x=self.xstep))
         self.btn_up.clicked.connect(lambda : microscope.move_stage(y=-self.ystep))
@@ -43,10 +48,13 @@ class SettingsTab(Tab):
         self.config_browse_button.clicked.connect(self.browse_config_file)
 
         self.slider_exposure.valueChanged.connect(self.change_exposure)
-        self.txt_exposure_value.textChanged.connect(lambda text: self.slider_exposure.setValue(int(text)) if text.isdigit() else None)
+        self.txt_exposure_value.textChanged.connect(lambda text: self.slider_exposure.setValue(int(text) if text.isdigit() else 0))
 
         self.slider_lamp_voltage.valueChanged.connect(self.change_lamp_voltage)
-        self.txt_lamp_voltage_value.textChanged.connect(lambda text: self.slider_lamp_voltage.setValue(int(text)) if text.isdigit() else None)
+        self.txt_lamp_voltage_value.textChanged.connect(lambda text: self.slider_lamp_voltage.setValue(int(text) if text.isdigit() else 0))
+
+        self.slider_laser_intensity.valueChanged.connect(self.change_laser_intensity)
+        self.txt_laser_intensity_value.textChanged.connect(lambda text: self.slider_laser_intensity.setValue(int(text) if text.isdigit() else 0))
         
         self.cmb_binning.currentIndexChanged.connect(self.set_binning)
         self.cmd_pixel_type.currentIndexChanged.connect(self.set_pixel_type)
@@ -55,6 +63,7 @@ class SettingsTab(Tab):
         self.checkbox_lamp_switch.stateChanged.connect(self.handle_lamp_switch)
         self.checkbox_auto_exposure.stateChanged.connect(self.handle_auto_exposure)
         self.checkbox_inverted_image.stateChanged.connect(self.handle_inverted_image)
+        self.checkbox_laser_switch.stateChanged.connect(self.handle_laser_switch)
 
         self.txt_move_x.textChanged.connect(
             lambda value: setattr(self, 'xstep', int(value) if value and int(value) <= 200 else 200)
@@ -130,8 +139,8 @@ class SettingsTab(Tab):
         label_exposure.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
         self.slider_exposure = QSlider(Qt.Horizontal, left_panel)
-        self.slider_exposure.setGeometry(130, 300, 100, 40)
-        self.slider_exposure.setMinimum(0)
+        self.slider_exposure.setGeometry(135, 300, 100, 40)
+        self.slider_exposure.setMinimum(1)
         self.slider_exposure.setMaximum(2000)
         self.slider_exposure.setValue(50)
         self.slider_exposure.setTickPosition(QSlider.TicksBelow)  
@@ -143,39 +152,57 @@ class SettingsTab(Tab):
         self.txt_exposure_value.setGeometry(250, 300, 60, 40)
 
         label_lamp_voltage = QLabel("Lamp Voltage", left_panel)
-        label_lamp_voltage.setGeometry(20, 360, 100, 40)
+        label_lamp_voltage.setGeometry(20, 350, 100, 40)
         label_lamp_voltage.setAlignment(Qt.AlignCenter)
         label_lamp_voltage.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
         self.slider_lamp_voltage = QSlider(Qt.Horizontal, left_panel)
-        self.slider_lamp_voltage.setGeometry(130, 360, 100, 40)
+        self.slider_lamp_voltage.setGeometry(135, 350, 100, 40)
         self.slider_lamp_voltage.setMinimum(0)
         self.slider_lamp_voltage.setMaximum(12)
-        self.slider_lamp_voltage.setValue(11)
+        self.slider_lamp_voltage.setValue(state_manager.get('LAMP-VOLTAGE'))
         self.slider_lamp_voltage.setTickPosition(QSlider.TicksBelow)  
         self.slider_lamp_voltage.setTickInterval(1)
 
         self.txt_lamp_voltage_value = QLineEdit(left_panel)
-        self.txt_lamp_voltage_value.setText("11")
+        self.txt_lamp_voltage_value.setText(str(state_manager.get('LAMP-VOLTAGE')))
         self.txt_lamp_voltage_value.setStyleSheet("QLineEdit { font-size:16px; };")
-        self.txt_lamp_voltage_value.setGeometry(250, 360, 60, 40)
+        self.txt_lamp_voltage_value.setGeometry(250, 350, 60, 40)
 
-        self.checkbox_lamp_switch = QCheckBox("Lamp", left_panel)
-        self.checkbox_lamp_switch.setGeometry(20, 430, 180, 40)
-        # self.checkbox_auto_exposure.setStyleSheet("border: 1px solid #444444;")
+        label_laser_intensity = QLabel("Laser Intensity", left_panel)
+        label_laser_intensity.setGeometry(20, 400, 105, 40)
+        label_laser_intensity.setAlignment(Qt.AlignCenter)
+        label_laser_intensity.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
-        self.checkbox_auto_exposure = QCheckBox("Auto-Exposure", left_panel)
-        self.checkbox_auto_exposure.setGeometry(20, 470, 180, 40)
-        # self.checkbox_auto_exposure.setStyleSheet("border: 1px solid #444444;")
+        self.slider_laser_intensity = QSlider(Qt.Horizontal, left_panel)
+        self.slider_laser_intensity.setGeometry(135, 400, 100, 40)
+        self.slider_laser_intensity.setMinimum(0)
+        self.slider_laser_intensity.setMaximum(100)
+        self.slider_laser_intensity.setValue(40)
+        self.slider_laser_intensity.setTickPosition(QSlider.TicksBelow)  
+        self.slider_laser_intensity.setTickInterval(5)
 
-        self.checkbox_inverted_image = QCheckBox("Inverted Image", left_panel)
-        self.checkbox_inverted_image.setGeometry(20, 510, 180, 40)
-        # self.checkbox_inverted.setStyleSheet("border: 1px solid #444444;")s
+        self.txt_laser_intensity_value = QLineEdit(left_panel)
+        self.txt_laser_intensity_value.setText(str(state_manager.get('LASER-INTENSITY')))
+        self.txt_laser_intensity_value.setStyleSheet("QLineEdit { font-size:16px; };")
+        self.txt_laser_intensity_value.setGeometry(250, 400, 60, 40)
 
         line_separator2 = QFrame(left_panel)
-        line_separator2.setGeometry(0, 420, 400, 1)
+        line_separator2.setGeometry(0, 460, 400, 1)
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
+
+        self.checkbox_auto_exposure = QCheckBox("Auto-Exposure", left_panel)
+        self.checkbox_auto_exposure.setGeometry(5, 470, 180, 40)
+
+        self.checkbox_inverted_image = QCheckBox("Inverted Image", left_panel)
+        self.checkbox_inverted_image.setGeometry(5, 510, 180, 40)
+
+        self.checkbox_lamp_switch = QCheckBox("Lamp", left_panel)
+        self.checkbox_lamp_switch.setGeometry(180, 470, 120, 40)
+
+        self.checkbox_laser_switch = QCheckBox("Laser", left_panel)
+        self.checkbox_laser_switch.setGeometry(180, 510, 120, 40)
 
         right_panel = QFrame()
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
@@ -184,8 +211,8 @@ class SettingsTab(Tab):
         self.live_image = QLabel(right_panel)
         self.live_image.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.live_image.setPixmap(self.image)
-        self.live_image.setFixedSize(420, 280)
-        self.live_image.setGeometry(6, 10, 420, 280)
+        self.live_image.setFixedSize(432, 301)
+        self.live_image.setGeometry(0, 0, 432, 301)
         self.live_image.setScaledContents(True)
 
         line_separator2 = QFrame(right_panel)
@@ -280,12 +307,17 @@ class SettingsTab(Tab):
         button_layout_widget.setLayout(button_layout)
         button_layout_widget.setGeometry(205, 320, 220, 130)
         # button_layout_widget.setStyleSheet(""" QWidget { border: 1px solid #444444; } QPushButton { border: none; }""")
+        live_icon = QIcon('components/live.png')
+        self.btn_live = QPushButton(" Live", right_panel)
+        self.btn_live.setGeometry(210, 490, 100, 40)
+        self.btn_live.setIcon(live_icon)
+        self.btn_live.setIconSize(QSize(24, 24))
 
-        self.btn_live = QPushButton("Live Preview", right_panel)
-        self.btn_live.setGeometry(245, 460, 140, 40)
-
-        self.btn_capture = QPushButton("Capture & Use", right_panel)
-        self.btn_capture.setGeometry(245, 510, 140, 40)
+        capture_icon = QIcon('components/camera.png')
+        self.btn_capture = QPushButton(" Snap", right_panel)
+        self.btn_capture.setGeometry(320, 490, 100, 40)
+        self.btn_capture.setIcon(capture_icon)
+        self.btn_capture.setIconSize(QSize(24, 24))
 
         frame_tab_layout.addWidget(left_panel)
         frame_tab_layout.addWidget(right_panel)
@@ -303,6 +335,10 @@ class SettingsTab(Tab):
 
     def handle_lamp_switch(self):
         state_manager.set('LAMP', self.checkbox_lamp_switch.isChecked())
+
+    def handle_laser_switch(self):
+        value = state_manager.get('LASER-INTENSITY') if self.checkbox_laser_switch.isChecked() else 0
+        state_manager.set('LASER', value)
 
     def handle_auto_exposure(self):
         state_manager.set('AUTO-EXPOSURE', self.checkbox_auto_exposure.isChecked())
@@ -325,10 +361,18 @@ class SettingsTab(Tab):
 
     def change_lamp_voltage(self, value):
         if value < 0 or value > 12:
-            self.logger.log("Error: lamp_voltage must be between 0 and 12")
+            self.logger.log("Error: Lamp voltage must be between 0 and 12")
             return
         self.txt_lamp_voltage_value.setText(str(value))
         state_manager.set('LAMP-VOLTAGE', value)
+
+    def change_laser_intensity(self, value):
+        if value < 0 or value > 100:
+            self.logger.log("Error: Laser intensity must be between 0 and 100")
+            return
+        self.txt_laser_intensity_value.setText(str(value))
+        state_manager.set('LASER-INTENSITY', value)        
+        state_manager.set('LASER', value)        
 
     def set_binning(self):
         state_manager.set('BINNING', self.cmb_binning.currentText())
@@ -337,7 +381,21 @@ class SettingsTab(Tab):
         state_manager.set('PIXEL-TYPE', self.cmd_pixel_type.currentText())
 
     def set_filter_position(self):
-        state_manager.set('FILTER-POSITION', self.cmb_filter_position.currentText())
+        state_manager.set('FILTER-POSITION', self.cmb_filter_position.currentText())        
+
+    def snap_image(self):
+        image = self.last_tagged_image
+        if image is None:
+            QMessageBox.information(None, "AutoRaman", "Enable live view to snap image.", QMessageBox.Ok)
+            return
+        self.stop_live_view()
+        qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
+        pixmap = QPixmap.fromImage(qimage)
+        self.live_image.setPixmap(pixmap)
+        self.live_image.repaint()
+        self.snaped_image = f"Autofocus/snaps/capture_{int(microscope.stage.x)}_{int(microscope.stage.y)}_{int(microscope.stage.z)}.tif"        
+        tiff.imsave(self.snaped_image, image)
+        self.logger.log("Image snapped")
 
     def live_preview(self):
         if self.islive:
@@ -346,7 +404,7 @@ class SettingsTab(Tab):
             self.start_live_view()
 
     def start_live_view(self):
-        self.btn_live.setText("Stop Live")
+        self.btn_live.setText(" Stop")
         self.btn_live.setStyleSheet("background-color: #F44336;")
         self.logger.log("live preview started")
         self.islive = True
@@ -358,7 +416,7 @@ class SettingsTab(Tab):
     def stop_live_view(self):
         controller.stop_sequence_acquisition()
         self.islive = False
-        self.btn_live.setText("Start Live")
+        self.btn_live.setText(" Live")
         self.btn_live.setStyleSheet("background-color: #4CAF50;")
         self.timer.stop()
         self.image = QPixmap("components/microscope.png")
@@ -381,6 +439,7 @@ class SettingsTab(Tab):
                 if state_manager.get('INVERTED-IMAGE'):
                     image = max(image) - image
 
+                self.last_tagged_image = image
                 qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
                 pixmap = QPixmap.fromImage(qimage)
                 self.live_image.setPixmap(pixmap)

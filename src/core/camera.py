@@ -1,9 +1,9 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from core.controller import controller
-from time import sleep
 
 import matplotlib.pyplot as plt
+import os
 
 class ICamera(ABC):
     def __init__(self, camera:str):
@@ -11,6 +11,7 @@ class ICamera(ABC):
         self.camera = camera
         self.snapped_image = None
         self.controller.set_camera_device(self.camera)
+        os.makedirs(f"Autofocus/snaps", exist_ok=True)
 
     def set_option(self, option:str = None, value:str = None):
         self.controller.set_property(self.camera, option, value)

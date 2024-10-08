@@ -27,7 +27,7 @@ StyleSheet = """
 
     /* Styling for QPushButton */
     QPushButton {
-        background-color: #4CAF50; /* Green background */
+        background-color: #45a049; /* Green background */
         color: #ffffff; /* White text */
         border: none; /* No border */
         padding: 10px 10px; /* Padding */
@@ -35,7 +35,7 @@ StyleSheet = """
         border-radius: 8px;
     }
     QPushButton:hover {
-        background-color: #45a049; /* Darker green on hover */
+        background-color: #66BB6A; /* Darker green on hover */
     }
     
 

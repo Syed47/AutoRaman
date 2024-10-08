@@ -31,7 +31,10 @@ class Microscope:
 
     def auto_focus(self, strategy: Autofocus, start: int, end: int, step: int = 1, callback=None) -> float:
         self.focus_strategy = strategy(self.camera, self.stage, self.lamp)
-        return self.focus_strategy.focus(start, end, step, callback)
+        self.zfocus = self.focus_strategy.focus(start, end, step, callback)
+        # self.stage.move(z=self.zfocus)
+        return self.zfocus
+
 
 
 # Only exposing microscope variable

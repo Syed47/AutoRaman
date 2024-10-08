@@ -34,7 +34,9 @@ class StateManager:
             "LASER-OFFSET": lambda val: None,
             "ZSTART": lambda val: None,
             "ZEND": lambda val: None,
-            "ZSTEP": lambda val: None
+            "ZSTEP": lambda val: None,
+            "LASER-INTENSITY": lambda val: None,
+            "SNAPPED-IMAGE": lambda val : None
         }
 
         action = actions.get(key)
@@ -59,10 +61,11 @@ state_manager.set('PIXEL-TYPE', 'GREY8')
 state_manager.set('FILTER-POSITION', controller.get_property("FilterCube", "Label"))
 state_manager.set('EXPOSURE', 15)
 state_manager.set('AUTO-EXPOSURE', False)
-state_manager.set('LAMP-VOLTAGE', 10)
+state_manager.set('LAMP-VOLTAGE', 5)
+state_manager.set('LASER-INTENSITY', 40)
 state_manager.set('INVERTED-IMAGE', False)
-state_manager.set('ZSTART', microscope.stage.z - 10)
-state_manager.set('ZEND', microscope.stage.z + 10)
+state_manager.set('ZSTART', int(microscope.stage.z) - 5)
+state_manager.set('ZEND', int(microscope.stage.z) + 5)
 state_manager.set('ZSTEP', 1)
 
 __all__ = ['state_manager']

@@ -4,11 +4,12 @@ from PyQt5.QtCore import Qt
 
 from components.tab import Tab
 from components.state import state_manager
-from core.autofocus import Amplitude, Phase
+from core.autofocus import Amplitude, Phase, Manual
 from core.microscope import microscope
 
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
+import os
+import re
 
 
 class AutofocusTab(Tab):
@@ -32,7 +33,7 @@ class AutofocusTab(Tab):
 
         left_panel = QFrame()
         left_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
-        left_panel.setFixedSize(320, 540)
+        left_panel.setFixedSize(300, 540)
 
         line_label1 = QLabel("Start (μm):", left_panel)
         line_label1.setGeometry(40, 20, 100, 40)
@@ -66,53 +67,60 @@ class AutofocusTab(Tab):
         line_separator.setFrameShape(QFrame.HLine)
         line_separator.setFrameShadow(QFrame.Sunken)
 
-        radio_label = QLabel("Autofocus Strategy:", left_panel)
-        radio_label.setGeometry(20, 240, 140, 40)
+        radio_label = QLabel("Strategy:", left_panel)
+        radio_label.setGeometry(40, 240, 140, 40)
         radio_label.setStyleSheet("QLabel { border: none; font-size:16px; };")
         self.radio_amplitude = QRadioButton("Amplitude", left_panel)
         self.radio_amplitude.setChecked(True)
-        self.radio_amplitude.setGeometry(160, 220, 140, 40)
+        self.radio_amplitude.setGeometry(140, 210, 140, 40)
         self.radio_phase = QRadioButton("Phase", left_panel)
-        self.radio_phase.setGeometry(160, 260, 140, 40)
+        self.radio_phase.setGeometry(140, 250, 140, 40)
+        self.radio_manual = QRadioButton("Manual", left_panel)
+        self.radio_manual.setGeometry(140, 290, 140, 40)
+
 
         line_separator2 = QFrame(left_panel)
-        line_separator2.setGeometry(0, 320, 400, 1)
+        line_separator2.setGeometry(0, 340, 400, 1)
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
 
         self.btn_run = QPushButton("Run", left_panel)
-        self.btn_run.setGeometry(80, 360, 160, 40)
+        self.btn_run.setGeometry(70, 370, 160, 40)
 
         line_separator2 = QFrame(left_panel)
         line_separator2.setGeometry(0, 440, 400, 1)
         line_separator2.setFrameShape(QFrame.HLine)
         line_separator2.setFrameShadow(QFrame.Sunken)
 
+
+        line_label_z = QLabel("Z (μm):", left_panel)
+        line_label_z.setGeometry(40, 470, 100, 40)
+        line_label_z.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
         self.txt_zfocus = QLineEdit(left_panel)
-        self.txt_zfocus.setPlaceholderText("z-distance result (μm)")
-        self.txt_zfocus.setText("001")
+        self.txt_zfocus.setPlaceholderText("1370 (μm)")
         self.txt_zfocus.setStyleSheet("QLineEdit { font-size:16px; };")
-        self.txt_zfocus.setGeometry(60, 470, 200, 40)
+        self.txt_zfocus.setGeometry(160, 470, 100, 40)
         self.txt_zfocus.setReadOnly(True)
 
         right_panel = QFrame()
         right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
-        right_panel.setFixedSize(420, 540)
+        right_panel.setFixedSize(440, 560)
 
         self.plot_bf = QPixmap("components/microscope.png")
         self.img_bf = QLabel(right_panel)
         self.img_bf.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_bf.setPixmap(self.plot_bf)
-        self.img_bf.setFixedSize(380, 260)
-        self.img_bf.setGeometry(20, 5, 380, 260)
+        self.img_bf.setFixedSize(420, 280)
+        self.img_bf.setGeometry(10, 0, 420, 280)
         self.img_bf.setScaledContents(True)
 
         self.plot_var = QPixmap("components/bar-chart.png")
         self.img_var = QLabel(right_panel)
         self.img_var.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_var.setPixmap(self.plot_var)
-        self.img_var.setFixedSize(380, 260)
-        self.img_var.setGeometry(20, 275, 380, 260)
+        self.img_var.setFixedSize(420, 280)
+        self.img_var.setGeometry(10, 280, 420, 280)
         self.img_var.setScaledContents(True)
 
         frame_tab_layout.addWidget(left_panel)
@@ -161,11 +169,24 @@ class AutofocusTab(Tab):
     def handle_autofocus(self):
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
         self.start_autofocus()
-        QApplication.restoreOverrideCursor()
+        QApplication.restoreOverrideCursor()        
+
+    def handle_manual_focus(self):
+        path = "Autofocus/snaps"
+        snaps = [os.path.join(path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        if not snaps:
+            return None, None
+        last_snapped_image = os.path.basename(max(snaps, key=os.path.getmtime)) # last captured image
+        match = re.search(r'_(\d+).tif$', last_snapped_image)  
+        if match:
+            zvalue = match.group(1)
+            return f"{path}/{last_snapped_image}", int(zvalue) 
+        return None, None    
 
     def start_autofocus(self):
         self.preprocess()
         self.logger.log("autofocus")
+
         try:
             start = state_manager.get('ZSTART')
             end = state_manager.get('ZEND')
@@ -184,8 +205,9 @@ class AutofocusTab(Tab):
 
         amplitude = self.radio_amplitude.isChecked()
         phase = self.radio_phase.isChecked()
+        manual = self.radio_manual.isChecked()
 
-        if not amplitude and not phase:
+        if not amplitude and not phase and not manual:
             self.logger.log("Error: No autofocus strategy selected.")
             return
 
@@ -194,16 +216,19 @@ class AutofocusTab(Tab):
             zfocus = microscope.auto_focus(Amplitude, start, end, step, self.handle_capture_image)
         elif phase:
             zfocus = microscope.auto_focus(Phase, start, end, step, self.handle_capture_image)
-
+        elif manual:
+            zfocus = microscope.auto_focus(Manual, 0, 0, 0, self.handle_manual_focus)
+        print(type(zfocus), zfocus)
         if zfocus is not None:
             self.logger.log(f"Autofocus Distance: {zfocus}")
             self.txt_zfocus.setText(str(zfocus))
             
             state_manager.set('ZFOCUS', zfocus)
-            print(">>> ZFOCUS", state_manager.get('ZFOCUS'), zfocus)
 
+            print(">>> focusedImage", microscope.focus_strategy.focused_image)
             self.handle_capture_image(microscope.focus_strategy.focused_image)
-            self.handle_variance_plot()
+            if not manual:
+                self.handle_variance_plot()
         else:
             self.logger.log("Error: Autofocus failed. Please check the settings and try again.")
         self.postprocess()
