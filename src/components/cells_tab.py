@@ -1,21 +1,25 @@
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton, QCheckBox, QSlider, QMessageBox
-from PyQt5.QtGui import QPixmap, QCursor, QPainter, QColor
-from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtGui import QPixmap, QCursor, QPainter, QColor, QImage
+from PyQt5.QtCore import Qt, QPoint, QTimer
 
 
 import os
 from components.tab import Tab
 from components.messagebox import MessageBox
 from components.state import state_manager
+from core.controller import controller
 from core.microscope import microscope
+from core.camera import SpectralCamera
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 from core.base_cell_identifier import CellPose
 
 import numpy as np
 import json
+import cv2
 from cellpose import models
 from cellpose.io import imread
 import matplotlib.pyplot as plt
+from time import sleep
 from scipy.ndimage import center_of_mass
 
 
@@ -50,6 +54,7 @@ class CellsTab(Tab):
             'nuclei': False,
             'custom': False
         }
+        self.live = False
         self.cellpose = CellPose()
         self.init_ui()
         self.connect_signals()
@@ -111,6 +116,9 @@ class CellsTab(Tab):
         self.btn_run = QPushButton("Identify", left_panel)
         self.btn_run.setGeometry(80, 320, 160, 40)
 
+        self.btn_spectra = QPushButton("Spectra", left_panel)
+        self.btn_spectra.setGeometry(80, 380, 160, 40)
+
         self.right_panel = QFrame()
         self.right_panel.setStyleSheet("QFrame { border: 1px solid #444444; };")
         self.right_panel.setFixedSize(420, 540)
@@ -140,6 +148,7 @@ class CellsTab(Tab):
 
     def connect_signals(self):
         self.btn_run.clicked.connect(self.handle_identification)
+        self.btn_spectra.clicked.connect(self.handle_spectra)
         self.txt_diameter.textChanged.connect(self.set_diameter)
         self.slider_conf_threshold.valueChanged.connect(self.change_conf_threshold)
         self.checkbox_cyto.stateChanged.connect(self.handle_models)
@@ -204,6 +213,69 @@ class CellsTab(Tab):
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
         self.identify()
         QApplication.restoreOverrideCursor()
+
+    def handle_spectra(self):
+        if self.live:
+            self.stop_live_view()
+            self.live = False
+        else:
+            self.start_live_view()
+            self.live = True
+
+    def start_live_view(self):
+        microscope.camera.set_camera('Andor')
+        microscope.camera.set_exposure(1000)
+        microscope.camera.set_option("ReadMode", "FVB");
+        print(microscope.camera.get_property('ReadMode'))
+        print(microscope.camera.camera)
+        self.logger.log("live preview started")
+        controller.start_continuous_sequence_acquisition(0)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.read_image_buffer)
+        self.timer.start(1000)
+
+    def stop_live_view(self):
+        controller.stop_sequence_acquisition()
+        self.timer.stop()
+        # self.plot_seg = QPixmap("components/microscope.png")
+        # self.img_seg.setPixmap(self.last_tagged_image)
+        self.logger.log("live preview stopped")
+
+    def read_image_buffer(self):
+        try:
+            remaining_images = controller.get_remaining_image_count()
+            if remaining_images > 0:
+                tagged_image = controller.get_last_tagged_image()
+                image = tagged_image.pix.reshape(tagged_image.tags['Height'], tagged_image.tags['Width'])
+
+                self.last_tagged_image = image
+
+                x_values = np.linspace(0, 1024, 1024)
+                plt.clf()
+                plt.plot(x_values, image[0], label='Original Line')
+
+                window_size = 5 
+                moving_average = np.convolve(image[0], np.ones(window_size) / window_size, mode='valid')
+
+                x_moving_avg = x_values[window_size - 1:]
+
+                plt.plot(x_moving_avg, moving_average, color='r', linestyle='solid', label='Moving Average')
+
+                plt.savefig("Autofocus/plots/spectra.png", bbox_inches='tight', pad_inches=0)
+
+                self.plot_seg = QPixmap("Autofocus/plots/spectra.png")
+                self.img_seg.setPixmap(self.plot_seg)
+
+                # qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
+                # pixmap = QPixmap.fromImage(qimage)
+                # self.live_image.setPixmap(pixmap)
+            else:
+                print("Circular buffer is empty, waiting for images...")
+                sleep(0.1)
+
+        except Exception as e:
+            print(f"Error retrieving image: {e}")
+            sleep(0.5)
 
     def identify(self):
 

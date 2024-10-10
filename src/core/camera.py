@@ -16,11 +16,15 @@ class ICamera(ABC):
     def set_option(self, option:str = None, value:str = None):
         self.controller.set_property(self.camera, option, value)
 
-    def get_property(self, option:str = None, value:str = None):
-        self.controller.set_property(self.camera, option, value)
+    def get_property(self, option:str = None):
+        self.controller.get_property(self.camera, option)
 
     def set_exposure(self, val:int = 15):
         self.controller.set_exposure(val)
+
+    def set_camera(self, camera:str):
+        self.camera = camera
+        self.controller.set_camera_device(self.camera)
 
     @abstractmethod
     def capture(self) -> np.array:
