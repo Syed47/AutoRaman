@@ -194,21 +194,19 @@ class LaserTab(Tab):
         self.img_bf.repaint()
 
     def handle_manual_focus(self):
-        path = "Autofocus/snaps"
-        snaps = [os.path.join(path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
-        if not snaps:
+        snapped_image = state_manager.get("SNAPPED-IMAGE")
+        if snapped_image is None:
             return None, None
-        last_snapped_image = os.path.basename(max(snaps, key=os.path.getmtime)) # last captured image
-        match = re.search(r'_(\d+).tif$', last_snapped_image)  
+        match = re.search(r'_(\d+).tif$', snapped_image)  
         if match:
             zvalue = match.group(1)
-            return f"{path}/{last_snapped_image}", int(zvalue) 
+            return snapped_image, int(zvalue) 
         return None, None    
 
     def handle_laser_autofocus(self):
-        # QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
         self.start_laser_focus()
-        # QApplication.restoreOverrideCursor()
+        QApplication.restoreOverrideCursor()
 
     def start_laser_focus(self):
         self.preprocess()

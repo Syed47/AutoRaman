@@ -172,15 +172,13 @@ class AutofocusTab(Tab):
         QApplication.restoreOverrideCursor()        
 
     def handle_manual_focus(self):
-        path = "Autofocus/snaps"
-        snaps = [os.path.join(path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
-        if not snaps:
+        snapped_image = state_manager.get("SNAPPED-IMAGE")
+        if snapped_image is None:
             return None, None
-        last_snapped_image = os.path.basename(max(snaps, key=os.path.getmtime)) # last captured image
-        match = re.search(r'_(\d+).tif$', last_snapped_image)  
+        match = re.search(r'_(\d+).tif$', snapped_image)  
         if match:
             zvalue = match.group(1)
-            return f"{path}/{last_snapped_image}", int(zvalue) 
+            return snapped_image, int(zvalue) 
         return None, None    
 
     def start_autofocus(self):
@@ -218,7 +216,7 @@ class AutofocusTab(Tab):
             zfocus = microscope.auto_focus(Phase, start, end, step, self.handle_capture_image)
         elif manual:
             zfocus = microscope.auto_focus(Manual, 0, 0, 0, self.handle_manual_focus)
-        print(type(zfocus), zfocus)
+
         if zfocus is not None:
             self.logger.log(f"Autofocus Distance: {zfocus}")
             self.txt_zfocus.setText(str(zfocus))

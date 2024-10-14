@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMessageBox, QFileDialog, QWidget, QHBoxLayout, QGridLayout, QFrame, QSlider, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QMessageBox, QRadioButton, QFileDialog, QWidget, QHBoxLayout, QGridLayout, QFrame, QSlider, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton
 from PyQt5.QtGui import QPixmap, QImage, QIcon
 from PyQt5.QtCore import Qt, QTimer, QSize
 
@@ -7,12 +7,11 @@ from core.microscope import microscope
 from core.controller import controller
 from components.state import state_manager
 
-from numpy import max
-from time import sleep
-
 import cv2
 import matplotlib.pyplot as plt
 import tifffile as tiff
+import numpy as np
+import time
 
 class SettingsTab(Tab):
     def __init__(self, logger=None):
@@ -22,6 +21,9 @@ class SettingsTab(Tab):
         self.preprocess()
         self.init_ui()
         self.connect_signals()
+        self.handle_camera()
+        self.change_exposure_amscope(state_manager.get('EXPOSURE-AMSCOPE'))
+        self.change_exposure_andor(state_manager.get('EXPOSURE-ANDOR'))
 
     def __del__(self):
         self.postprocess()
@@ -45,20 +47,23 @@ class SettingsTab(Tab):
         self.btn_zoom_in.clicked.connect(lambda : microscope.move_stage(z=-self.zstep))
         self.btn_zoom_out.clicked.connect(lambda : microscope.move_stage(z=self.zstep))
 
+        self.radio_amscope.toggled.connect(self.handle_camera)
+        self.radio_andor.toggled.connect(self.handle_camera)
+
         self.config_browse_button.clicked.connect(self.browse_config_file)
 
-        self.slider_exposure.valueChanged.connect(self.change_exposure)
-        self.txt_exposure_value.textChanged.connect(lambda text: self.slider_exposure.setValue(int(text) if text.isdigit() else 0))
+        self.slider_exposure_amscope.valueChanged.connect(self.change_exposure_amscope)
+        self.txt_exposure_amscope_value.textChanged.connect(lambda text: self.slider_exposure_amscope.setValue(int(text) if text.isdigit() else 0))
+
+        self.slider_exposure_andor.valueChanged.connect(self.change_exposure_andor)
+        self.txt_exposure_andor_value.textChanged.connect(lambda text: self.slider_exposure_andor.setValue(int(text) if text.isdigit() else 0))
 
         self.slider_lamp_voltage.valueChanged.connect(self.change_lamp_voltage)
         self.txt_lamp_voltage_value.textChanged.connect(lambda text: self.slider_lamp_voltage.setValue(int(text) if text.isdigit() else 0))
 
         self.slider_laser_intensity.valueChanged.connect(self.change_laser_intensity)
         self.txt_laser_intensity_value.textChanged.connect(lambda text: self.slider_laser_intensity.setValue(int(text) if text.isdigit() else 0))
-        
-        self.cmb_binning.currentIndexChanged.connect(self.set_binning)
-        self.cmd_pixel_type.currentIndexChanged.connect(self.set_pixel_type)
-        self.cmb_filter_position.currentIndexChanged.connect(self.set_filter_position)
+
 
         self.checkbox_lamp_switch.stateChanged.connect(self.handle_lamp_switch)
         self.checkbox_auto_exposure.stateChanged.connect(self.handle_auto_exposure)
@@ -89,68 +94,68 @@ class SettingsTab(Tab):
         self.config_file_path = QLineEdit(left_panel)
         self.config_file_path.setPlaceholderText("Select a config file")
         self.config_file_path.setStyleSheet("QLineEdit { font-size:16px; };")
-        self.config_file_path.setGeometry(20, 20, 180, 40)
+        self.config_file_path.setGeometry(20, 25, 180, 40)
         self.config_browse_button = QPushButton("Browse", left_panel)
-        self.config_browse_button.setGeometry(220, 20, 80, 40)
+        self.config_browse_button.setGeometry(220, 25, 80, 40)
 
         line_separator = QFrame(left_panel)
-        line_separator.setGeometry(0, 80, 400, 1)
+        line_separator.setGeometry(0, 90, 400, 1)
         line_separator.setFrameShape(QFrame.HLine)
         line_separator.setFrameShadow(QFrame.Sunken)
 
-        line_label1 = QLabel("Binning:", left_panel)
-        line_label1.setGeometry(40, 100, 100, 40)
-        line_label1.setStyleSheet("QLabel { border: none; font-size:16px; };")
-
-        self.cmb_binning = QComboBox(left_panel)
-        self.cmb_binning.addItems(["1x1", "2x2", "4x4"])
-        self.cmb_binning.setStyleSheet("QComboBox { font-size:16px; };")
-        self.cmb_binning.setGeometry(160, 100, 100, 40)
-        self.cmb_binning.setCurrentText(state_manager.get('BINNING'))
-
-        line_label2 = QLabel("Pixel Type:", left_panel)
-        line_label2.setGeometry(40, 160, 100, 40)
-        line_label2.setStyleSheet("QLabel { border: none; font-size:16px; };")
-
-        self.cmd_pixel_type = QComboBox(left_panel)
-        self.cmd_pixel_type.addItems(["GREY8", "RGB32"])
-        self.cmd_pixel_type.setStyleSheet("QComboBox { font-size:16px; };")
-        self.cmd_pixel_type.setGeometry(160, 160, 100, 40)
-        self.cmd_pixel_type.setCurrentText(state_manager.get('PIXEL-TYPE'))
-
-        line_label3 = QLabel("Filter Position:", left_panel)
-        line_label3.setGeometry(40, 220, 100, 40)
-        line_label3.setStyleSheet("QLabel { border: none; font-size:16px; };")
-
-        self.cmb_filter_position = QComboBox(left_panel)
-        self.cmb_filter_position.addItems(["Position-1", "Position-2", "Position-3", "Position-4", "Position-5", "Position-6"])
-        self.cmb_filter_position.setStyleSheet("QComboBox { font-size:16px; };")
-        self.cmb_filter_position.setGeometry(160, 220, 100, 40)
-        self.cmb_filter_position.setCurrentText(state_manager.get('FILTER-POSITION'))
-        
-        line_separator = QFrame(left_panel)
-        line_separator.setGeometry(0, 280, 400, 1)
-        line_separator.setFrameShape(QFrame.HLine)
-        line_separator.setFrameShadow(QFrame.Sunken)
+        self.radio_amscope = QRadioButton("AmScope", left_panel)
+        self.radio_amscope.setGeometry(20, 100, 140, 40)
+        self.radio_amscope.setChecked(True)
 
         label_exposure = QLabel("Exposure", left_panel)
-        label_exposure.setGeometry(5, 300, 100, 40)
+        label_exposure.setGeometry(20, 150, 100, 40)
         label_exposure.setAlignment(Qt.AlignCenter)
         label_exposure.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
-        self.slider_exposure = QSlider(Qt.Horizontal, left_panel)
-        self.slider_exposure.setGeometry(135, 300, 100, 40)
-        self.slider_exposure.setMinimum(1)
-        self.slider_exposure.setMaximum(2000)
-        self.slider_exposure.setValue(50)
-        self.slider_exposure.setTickPosition(QSlider.TicksBelow)  
-        self.slider_exposure.setTickInterval(50)
+        self.slider_exposure_amscope = QSlider(Qt.Horizontal, left_panel)
+        self.slider_exposure_amscope.setGeometry(135, 150, 100, 40)
+        self.slider_exposure_amscope.setMinimum(1)
+        self.slider_exposure_amscope.setMaximum(2000)
+        self.slider_exposure_amscope.setValue(state_manager.get('EXPOSURE-AMSCOPE'))
+        self.slider_exposure_amscope.setTickPosition(QSlider.TicksBelow)  
+        self.slider_exposure_amscope.setTickInterval(50)
 
-        self.txt_exposure_value = QLineEdit(left_panel)
-        self.txt_exposure_value.setText("15")
-        self.txt_exposure_value.setStyleSheet("QLineEdit { font-size:16px; };")
-        self.txt_exposure_value.setGeometry(250, 300, 60, 40)
+        self.txt_exposure_amscope_value = QLineEdit(left_panel)
+        self.txt_exposure_amscope_value.setText(str(state_manager.get('EXPOSURE-AMSCOPE')))
+        self.txt_exposure_amscope_value.setStyleSheet("QLineEdit { font-size:16px; };")
+        self.txt_exposure_amscope_value.setGeometry(250, 150, 60, 40)
 
+        line_separator = QFrame(left_panel)
+        line_separator.setGeometry(0, 210, 400, 1)
+        line_separator.setFrameShape(QFrame.HLine)
+        line_separator.setFrameShadow(QFrame.Sunken)
+
+        self.radio_andor = QRadioButton("Andor", left_panel)
+        self.radio_andor.setGeometry(20, 220, 120, 40)
+
+        label_exposure = QLabel("Exposure", left_panel)
+        label_exposure.setGeometry(20, 270, 100, 40)
+        label_exposure.setAlignment(Qt.AlignCenter)
+        label_exposure.setStyleSheet("QLabel { border: none; font-size:16px; };")
+
+        self.slider_exposure_andor = QSlider(Qt.Horizontal, left_panel)
+        self.slider_exposure_andor.setGeometry(135, 270, 100, 40)
+        self.slider_exposure_andor.setMinimum(1)
+        self.slider_exposure_andor.setMaximum(5000)
+        self.slider_exposure_andor.setValue(state_manager.get('EXPOSURE-ANDOR'))
+        self.slider_exposure_andor.setTickPosition(QSlider.TicksBelow)  
+        self.slider_exposure_andor.setTickInterval(100)
+
+        self.txt_exposure_andor_value = QLineEdit(left_panel)
+        self.txt_exposure_andor_value.setText(str(state_manager.get('EXPOSURE-ANDOR')))
+        self.txt_exposure_andor_value.setStyleSheet("QLineEdit { font-size:16px; };")
+        self.txt_exposure_andor_value.setGeometry(250, 270, 60, 40)
+
+        line_separator = QFrame(left_panel)
+        line_separator.setGeometry(0, 330, 400, 1)
+        line_separator.setFrameShape(QFrame.HLine)
+        line_separator.setFrameShadow(QFrame.Sunken)
+        
         label_lamp_voltage = QLabel("Lamp Voltage", left_panel)
         label_lamp_voltage.setGeometry(20, 350, 100, 40)
         label_lamp_voltage.setAlignment(Qt.AlignCenter)
@@ -247,15 +252,15 @@ class SettingsTab(Tab):
         self.txt_move_z.setStyleSheet("QLineEdit { font-size:16px; };")
         self.txt_move_z.setGeometry(130, 400, 60, 40)
 
-        self.label_position_x = QLabel(f"X (μm):    {int(microscope.stage.x)}", right_panel)
+        self.label_position_x = QLabel(f"X (μm):            {int(microscope.stage.x)}", right_panel)
         self.label_position_x.setGeometry(20, 450, 180, 40)
         self.label_position_x.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
-        self.label_position_y = QLabel(f"Y (μm):    {int(microscope.stage.y)}", right_panel)
+        self.label_position_y = QLabel(f"Y (μm):            {int(microscope.stage.y)}", right_panel)
         self.label_position_y.setGeometry(20, 480, 180, 40)
         self.label_position_y.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
-        self.label_position_z = QLabel(f"Z (μm):    {int(microscope.stage.z)}", right_panel)
+        self.label_position_z = QLabel(f"Z (μm):            {int(microscope.stage.z)}", right_panel)
         self.label_position_z.setGeometry(20, 510, 180, 40)
         self.label_position_z.setStyleSheet("QLabel { border: none; font-size:16px; };")
 
@@ -306,7 +311,7 @@ class SettingsTab(Tab):
         button_layout_widget = QWidget(right_panel)
         button_layout_widget.setLayout(button_layout)
         button_layout_widget.setGeometry(205, 320, 220, 130)
-        # button_layout_widget.setStyleSheet(""" QWidget { border: 1px solid #444444; } QPushButton { border: none; }""")
+
         live_icon = QIcon('components/live.png')
         self.btn_live = QPushButton(" Live", right_panel)
         self.btn_live.setGeometry(210, 490, 100, 40)
@@ -333,6 +338,21 @@ class SettingsTab(Tab):
         if file_name:
             self.config_file_path.setText(file_name)
 
+
+    def handle_camera(self):
+        amscope = self.radio_amscope.isChecked()
+        andor = self.radio_andor.isChecked()
+
+        if amscope:
+            microscope.camera.set_camera("AmScope")
+            self.slider_exposure_andor.setEnabled(False)
+            self.slider_exposure_amscope.setEnabled(True)
+
+        if andor:
+            microscope.camera.set_camera('Andor')
+            self.slider_exposure_andor.setEnabled(True)
+            self.slider_exposure_amscope.setEnabled(False)
+
     def handle_lamp_switch(self):
         state_manager.set('LAMP', self.checkbox_lamp_switch.isChecked())
 
@@ -343,21 +363,28 @@ class SettingsTab(Tab):
     def handle_auto_exposure(self):
         state_manager.set('AUTO-EXPOSURE', self.checkbox_auto_exposure.isChecked())
         if state_manager.get('AUTO-EXPOSURE'):
-            self.slider_exposure.setEnabled(False)
-            self.txt_exposure_value.setEnabled(False)
+            self.slider_exposure_amscope.setEnabled(False)
+            self.txt_exposure_amscope_value.setEnabled(False)
         else:
-            self.slider_exposure.setEnabled(True) 
-            self.txt_exposure_value.setEnabled(True)
+            self.slider_exposure_amscope.setEnabled(True) 
+            self.txt_exposure_amscope_value.setEnabled(True)
 
     def handle_inverted_image(self):
         state_manager.set('INVERTED-IMAGE', self.checkbox_inverted_image.isChecked())
 
-    def change_exposure(self, value):
+    def change_exposure_amscope(self, value):
         if value < 1 or value > 2000:
             self.logger.log("Error: Exposure must be between 0 and 2000")
             return
-        self.txt_exposure_value.setText(str(value))
-        state_manager.set('EXPOSURE', value)
+        self.txt_exposure_amscope_value.setText(str(value))
+        state_manager.set('EXPOSURE-AMSCOPE', value)
+
+    def change_exposure_andor(self, value):
+        if value < 1 or value > 5000:
+            self.logger.log("Error: Exposure must be between 0 and 5000")
+            return
+        self.txt_exposure_andor_value.setText(str(value))
+        state_manager.set('EXPOSURE-ANDOR', value) 
 
     def change_lamp_voltage(self, value):
         if value < 0 or value > 12:
@@ -371,17 +398,9 @@ class SettingsTab(Tab):
             self.logger.log("Error: Laser intensity must be between 0 and 100")
             return
         self.txt_laser_intensity_value.setText(str(value))
-        state_manager.set('LASER-INTENSITY', value)        
-        state_manager.set('LASER', value)        
-
-    def set_binning(self):
-        state_manager.set('BINNING', self.cmb_binning.currentText())
-
-    def set_pixel_type(self):
-        state_manager.set('PIXEL-TYPE', self.cmd_pixel_type.currentText())
-
-    def set_filter_position(self):
-        state_manager.set('FILTER-POSITION', self.cmb_filter_position.currentText())        
+        state_manager.set('LASER-INTENSITY', value)
+        if self.checkbox_laser_switch.isChecked():     
+            state_manager.set('LASER', value)        
 
     def snap_image(self):
         image = self.last_tagged_image
@@ -395,23 +414,36 @@ class SettingsTab(Tab):
         self.live_image.repaint()
         self.snaped_image = f"Autofocus/snaps/capture_{int(microscope.stage.x)}_{int(microscope.stage.y)}_{int(microscope.stage.z)}.tif"        
         tiff.imsave(self.snaped_image, image)
+        state_manager.set("SNAPPED-IMAGE", self.snaped_image)
         self.logger.log("Image snapped")
 
     def live_preview(self):
         if self.islive:
+            self.radio_amscope.setEnabled(True)
+            self.radio_andor.setEnabled(True)
             self.stop_live_view()
         else:
+            self.radio_amscope.setEnabled(False)
+            self.radio_andor.setEnabled(False)
             self.start_live_view()
+
 
     def start_live_view(self):
         self.btn_live.setText(" Stop")
         self.btn_live.setStyleSheet("background-color: #F44336;")
         self.logger.log("live preview started")
         self.islive = True
-        controller.start_continuous_sequence_acquisition(0)
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.read_image_buffer)
-        self.timer.start(100)
+
+        if self.radio_amscope.isChecked():
+            microscope.camera.set_exposure(state_manager.get('EXPOSURE-AMSCOPE'))
+            self.timer.timeout.connect(self.read_image_buffer)
+        if self.radio_andor.isChecked():
+            microscope.camera.set_exposure(state_manager.get('EXPOSURE-ANDOR'))
+            microscope.camera.set_option("ReadMode", "FVB");
+            self.timer.timeout.connect(self.read_spectra_buffer)
+        controller.start_continuous_sequence_acquisition(0)
+        self.timer.start(500)
 
     def stop_live_view(self):
         controller.stop_sequence_acquisition()
@@ -437,29 +469,63 @@ class SettingsTab(Tab):
                     image = cv2.resize(image, (tagged_image.tags['Height'], tagged_image.tags['Width'])) 
 
                 if state_manager.get('INVERTED-IMAGE'):
-                    image = max(image) - image
+                    image = np.max(image) - image
 
                 self.last_tagged_image = image
                 qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
                 pixmap = QPixmap.fromImage(qimage)
                 self.live_image.setPixmap(pixmap)
 
-                self.label_position_x.setText(f"X (μm):    {int(microscope.stage.x)}")
-                self.label_position_y.setText(f"Y (μm):    {int(microscope.stage.y)}")
-                self.label_position_z.setText(f"Z (μm):    {int(microscope.stage.z)}")
+                self.label_position_x.setText(f"X (μm):            {int(microscope.stage.x)}")
+                self.label_position_y.setText(f"Y (μm):            {int(microscope.stage.y)}")
+                self.label_position_z.setText(f"Z (μm):            {int(microscope.stage.z)}")
 
             else:
                 print("Circular buffer is empty, waiting for images...")
-                sleep(0.1)
+                time.sleep(0.1)
 
         except Exception as e:
             print(f"Error retrieving image: {e}")
-            sleep(0.5)
+            time.sleep(0.5)
 
-        # finally:
-        #     self.label_position_x.setText(f"X (μm):    {int(microscope.stage.x)}")
-        #     self.label_position_y.setText(f"Y (μm):    {int(microscope.stage.y)}")
-        #     self.label_position_z.setText(f"Z (μm):    {int(microscope.stage.z)}")
+    def read_spectra_buffer(self):
 
+        try:
+            remaining_images = controller.get_remaining_image_count()
+            if remaining_images > 0:
+                tagged_image = controller.get_last_tagged_image()
+                image = tagged_image.pix.reshape(tagged_image.tags['Height'], tagged_image.tags['Width'])
+
+                self.last_tagged_image = image
+
+                x_values = np.linspace(0, 1024, 1024)
+                plt.clf()
+                plt.plot(x_values, image[0], label='Original Line')
+
+                window_size = 5 
+                moving_average = np.convolve(image[0], np.ones(window_size) / window_size, mode='valid')
+
+                x_moving_avg = x_values[window_size - 1:]
+
+                plt.plot(x_moving_avg, moving_average, color='r', linestyle='solid', label='Moving Average')
+
+                plt.savefig("Autofocus/plots/spectra.png", bbox_inches='tight', pad_inches=0)
+
+                self.image = QPixmap("Autofocus/plots/spectra.png")
+                self.live_image.setPixmap(self.image)
+
+                self.label_position_x.setText(f"X (μm):            {int(microscope.stage.x)}")
+                self.label_position_y.setText(f"Y (μm):            {int(microscope.stage.y)}")
+                self.label_position_z.setText(f"Z (μm):            {int(microscope.stage.z)}")
+
+            else:
+                print("Circular buffer is empty, waiting for spectra...")
+                time.sleep(0.1)
+
+        except Exception as e:
+            print(f"Error retrieving spectra: {e}")
+            time.sleep(0.5)
+
+    
     def update(self):
         pass

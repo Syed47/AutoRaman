@@ -184,10 +184,11 @@ class CellsTab(Tab):
 
     def handle_manual_selection(self):
         print("step 1")
-        if microscope.focus_strategy is not None:
+        image = state_manager.get("SNAPPED-IMAGE")
+        if image is not None:
             if self.checkbox_custom.isChecked():
                 print("step 2")
-                self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
+                self.plot_bf = QPixmap(image)
                 self.img_bf = InteractiveImage(self.right_panel) 
                 self.img_bf.setPixmap(self.plot_bf)
                 self.img_bf.setGeometry(20, 5, 380, 260)
@@ -195,7 +196,7 @@ class CellsTab(Tab):
                 self.img_bf.setScaledContents(True)
                 self.img_bf.show()
 
-            self.plot_bf = QPixmap(microscope.focus_strategy.focused_image)
+            self.plot_bf = QPixmap(image)
             self.img_bf.setPixmap(self.plot_bf)
             self.img_bf.repaint()
         else:
