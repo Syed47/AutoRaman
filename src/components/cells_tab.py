@@ -56,6 +56,7 @@ class CellsTab(Tab):
         }
         self.live = False
         self.cellpose = CellPose()
+        self.last_tagged_image = None
         self.init_ui()
         self.connect_signals()
 
@@ -148,7 +149,7 @@ class CellsTab(Tab):
 
     def connect_signals(self):
         self.btn_run.clicked.connect(self.handle_identification)
-        self.btn_spectra.clicked.connect(self.handle_spectra)
+        self.btn_spectra.clicked.connect(self.record_spectra)
         self.txt_diameter.textChanged.connect(self.set_diameter)
         self.slider_conf_threshold.valueChanged.connect(self.change_conf_threshold)
         self.checkbox_cyto.stateChanged.connect(self.handle_models)
@@ -183,11 +184,9 @@ class CellsTab(Tab):
         self.logger.log("Threshold:" + str(self.threshold))
 
     def handle_manual_selection(self):
-        print("step 1")
         image = state_manager.get("SNAPPED-IMAGE")
         if image is not None:
             if self.checkbox_custom.isChecked():
-                print("step 2")
                 self.plot_bf = QPixmap(image)
                 self.img_bf = InteractiveImage(self.right_panel) 
                 self.img_bf.setPixmap(self.plot_bf)
@@ -199,6 +198,7 @@ class CellsTab(Tab):
             self.plot_bf = QPixmap(image)
             self.img_bf.setPixmap(self.plot_bf)
             self.img_bf.repaint()
+            self.logger.log(str(self.img_bf.points))
         else:
             self.plot_bf = QPixmap("components/microscope.png")
             self.img_bf.setPixmap(self.plot_bf)
@@ -224,6 +224,7 @@ class CellsTab(Tab):
             self.live = True
 
     def start_live_view(self):
+        print("LIVE VIEW STARTED")
         microscope.camera.set_camera('Andor')
         microscope.camera.set_exposure(1000)
         microscope.camera.set_option("ReadMode", "FVB");
@@ -233,7 +234,7 @@ class CellsTab(Tab):
         controller.start_continuous_sequence_acquisition(0)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.read_image_buffer)
-        self.timer.start(1000)
+        self.timer.start(500)
 
     def stop_live_view(self):
         controller.stop_sequence_acquisition()
@@ -243,6 +244,7 @@ class CellsTab(Tab):
         self.logger.log("live preview stopped")
 
     def read_image_buffer(self):
+        print('READING LIVE IMAGE')
         try:
             remaining_images = controller.get_remaining_image_count()
             if remaining_images > 0:
@@ -250,26 +252,7 @@ class CellsTab(Tab):
                 image = tagged_image.pix.reshape(tagged_image.tags['Height'], tagged_image.tags['Width'])
 
                 self.last_tagged_image = image
-
-                x_values = np.linspace(0, 1024, 1024)
-                plt.clf()
-                plt.plot(x_values, image[0], label='Original Line')
-
-                window_size = 5 
-                moving_average = np.convolve(image[0], np.ones(window_size) / window_size, mode='valid')
-
-                x_moving_avg = x_values[window_size - 1:]
-
-                plt.plot(x_moving_avg, moving_average, color='r', linestyle='solid', label='Moving Average')
-
-                plt.savefig("Autofocus/plots/spectra.png", bbox_inches='tight', pad_inches=0)
-
-                self.plot_seg = QPixmap("Autofocus/plots/spectra.png")
-                self.img_seg.setPixmap(self.plot_seg)
-
-                # qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
-                # pixmap = QPixmap.fromImage(qimage)
-                # self.live_image.setPixmap(pixmap)
+                print("last tagged imaged updated")
             else:
                 print("Circular buffer is empty, waiting for images...")
                 sleep(0.1)
@@ -277,6 +260,41 @@ class CellsTab(Tab):
         except Exception as e:
             print(f"Error retrieving image: {e}")
             sleep(0.5)
+
+    def record_spectra(self):
+        self.start_live_view()
+        sleep(2)
+        if state_manager.get('LASER-XYZ') is None:
+            MessageBox(text="Please run the laser focus routine before continuing.",
+                       icon=QMessageBox.Warning)
+            return
+        X, Y, Z = state_manager.get('LASER-XYZ')
+        print(X,Y,Z)
+        self.points = [(p.x(), p.y()) for p in self.img_bf.points]
+        self.positions = []
+        transform_matrix = state_manager.get('TRANSFORM-MATRIX')
+        print(transform_matrix)
+        print(transform_matrix(200, 100))
+        width, height = microscope.camera.width, microscope.camera.height
+        print('Camera XY:', width, height)
+        x_values = np.linspace(0, 1024, 1024)
+        sleep(2)
+        for p in self.points:
+            x, y = p[0] * (width / 380) , p[1] * (height / 260)
+            dx, dy = X - x, Y - y
+            sx, sy = transform_matrix(dx, dy)
+            print('XY:', x, y)
+            print('dxdy:', dx, dy)
+            print('sxsy:', sx, sy)
+            microscope.move_stage(sx, sy)
+            sleep(2)
+            image = self.last_tagged_image
+            plt.plot(x_values, image[0], label='Original Line')
+            plt.pause(0.5)
+        plt.show()
+
+        print(self.points)
+        self.stop_live_view()
 
     def identify(self):
 

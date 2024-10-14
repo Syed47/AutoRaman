@@ -33,11 +33,13 @@ class StateManager:
             "ZFOCUS": lambda val: None,
             "LASER-FOCUS": lambda val: None,
             "LASER-OFFSET": lambda val: None,
+            "LASER-XYZ": lambda val: None,
             "ZSTART": lambda val: None,
             "ZEND": lambda val: None,
             "ZSTEP": lambda val: None,
             "LASER-INTENSITY": lambda val: None,
-            "SNAPPED-IMAGE": lambda val : None
+            "SNAPPED-IMAGE": lambda val : None,
+            "TRANSFORM-MATRIX": lambda val : None
         }
 
         action = actions.get(key)

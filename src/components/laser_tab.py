@@ -250,6 +250,7 @@ class LaserTab(Tab):
             self.txt_y.setText(str(y))
             self.txt_z.setText(str(laserfocus))
             
+            state_manager.set('LASER-XYZ', (x, y, laserfocus))
             state_manager.set('LASER-FOCUS', laserfocus)
             if state_manager.get('ZFOCUS') is not None:
                 state_manager.set('LASER-OFFSET', state_manager.get('LASER-FOCUS') - state_manager.get('ZFOCUS'))
