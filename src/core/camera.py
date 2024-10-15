@@ -11,6 +11,8 @@ class ICamera(ABC):
         self.camera = camera
         self.snapped_image = None
         self.controller.set_camera_device(self.camera)
+        self.width = self.controller.get_image_width()
+        self.height = self.controller.get_image_height()
         os.makedirs(f"Autofocus/snaps", exist_ok=True)
 
     def set_option(self, option:str = None, value:str = None):
@@ -34,9 +36,7 @@ class ICamera(ABC):
 class Camera(ICamera):
     def __init__(self, camera:str='AmScope', exposure:int=15):
         super().__init__(camera)
-        self.width = self.controller.get_image_width()
-        self.height = self.controller.get_image_height()
-        self.snapped_image = None
+        self.set_exposure(exposure)
        
     def capture(self) -> np.array:
         self.controller.snap_image()
@@ -60,9 +60,11 @@ class Camera(ICamera):
 
 
 class SpectralCamera(ICamera):
-    def __init__(self, camera:str='Andor'):
+    def __init__(self, camera:str='Andor', exposure:int=1000):
         super().__init__(camera)
+        self.set_exposure(exposure)
     
     def capture(self) -> np.array:
-        # Placeholder implementation
-        return np.array([])
+        self.controller.snap_image()
+        img = self.controller.get_image()
+        return np.reshape(img, (self.height, self.width))

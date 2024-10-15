@@ -9,7 +9,7 @@ from components.messagebox import MessageBox
 from components.state import state_manager
 from core.controller import controller
 from core.microscope import microscope
-from core.camera import SpectralCamera
+from core.camera import Camera, SpectralCamera
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 from core.base_cell_identifier import CellPose
 
@@ -262,39 +262,42 @@ class CellsTab(Tab):
             sleep(0.5)
 
     def record_spectra(self):
-        self.start_live_view()
-        sleep(2)
+        
         if state_manager.get('LASER-XYZ') is None:
             MessageBox(text="Please run the laser focus routine before continuing.",
                        icon=QMessageBox.Warning)
             return
+        
+        width, height = microscope.camera.width, microscope.camera.height
+        print('Camera XY:', width, height)
+        microscope.camera = SpectralCamera(exposure=state_manager.get('EXPOSURE-ANDOR'))
+        sleep(1)
+        Sx, Sy = microscope.stage.x, microscope.stage.y
         X, Y, Z = state_manager.get('LASER-XYZ')
         print(X,Y,Z)
         self.points = [(p.x(), p.y()) for p in self.img_bf.points]
-        self.positions = []
         transform_matrix = state_manager.get('TRANSFORM-MATRIX')
-        print(transform_matrix)
-        print(transform_matrix(200, 100))
-        width, height = microscope.camera.width, microscope.camera.height
-        print('Camera XY:', width, height)
         x_values = np.linspace(0, 1024, 1024)
-        sleep(2)
+
         for p in self.points:
+            print("x0x1:", p[0], p[1])
             x, y = p[0] * (width / 380) , p[1] * (height / 260)
-            dx, dy = X - x, Y - y
+            dx, dy = X - x, y - Y
             sx, sy = transform_matrix(dx, dy)
-            print('XY:', x, y)
+            print('xy:', x, y)
             print('dxdy:', dx, dy)
             print('sxsy:', sx, sy)
             microscope.move_stage(sx, sy)
             sleep(2)
-            image = self.last_tagged_image
+            X, Y = x, y
+            image = microscope.camera.capture()
             plt.plot(x_values, image[0], label='Original Line')
             plt.pause(0.5)
         plt.show()
-
+        microscope.camera = Camera(exposure=state_manager.get('EXPOSURE-AMSCOPE'))
+        # microscope.stage.move(Sx, Sy)
+        sleep(1)
         print(self.points)
-        self.stop_live_view()
 
     def identify(self):
 
