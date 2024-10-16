@@ -5,14 +5,14 @@ import os
 import pandas as pd
 from abc import ABC, abstractmethod
 
-from core.camera import ICamera, Camera, SpectralCamera
+from core.camera import Camera, CCDCamera, SpectralCamera
 from core.lamp import Lamp
 from core.stage import Stage
 
 from time import sleep
 
 class Autofocus(ABC):
-    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir=""):
+    def __init__(self, camera: Camera, stage: Stage, lamp: Lamp, image_dir=""):
         self.camera = camera
         self.lamp = lamp
         self.stage = stage
@@ -25,7 +25,7 @@ class Autofocus(ABC):
         os.makedirs(self.image_dir, exist_ok=True)
 
     def get_file_path(self, index: int) -> str:
-        if isinstance(self.camera, Camera):
+        if isinstance(self.camera, CCDCamera):
             return f"{self.image_dir}/capture_{index}.tif"
         elif isinstance(self.camera, SpectralCamera):
             return f"{self.image_dir}/capture_{index}.csv"
@@ -50,7 +50,7 @@ class Autofocus(ABC):
 
                 pre_path = self.get_file_path(i - 5)
                 
-                if isinstance(self.camera, Camera):
+                if isinstance(self.camera, CCDCamera):
                     tiff.imwrite(pre_path, img)
                 elif isinstance(self.camera, SpectralCamera):
                     pd.DataFrame(img).to_csv(pre_path) 
@@ -80,7 +80,7 @@ class Manual(Autofocus):
         return self.focus_distance
 
 class Amplitude(Autofocus):
-    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="images"):
+    def __init__(self, camera: Camera, stage: Stage, lamp: Lamp, image_dir="images"):
         super().__init__(camera, stage, lamp, image_dir)
 
 
@@ -111,7 +111,7 @@ class Amplitude(Autofocus):
 
 
 class Phase(Autofocus):
-    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="images"):
+    def __init__(self, camera: Camera, stage: Stage, lamp: Lamp, image_dir="images"):
         super().__init__(camera, stage, lamp, image_dir)
 
     def focus(self, start: int, end: int, step: int, callback=None) -> float:
@@ -140,7 +140,7 @@ class Phase(Autofocus):
         return self.focus_distance
 
 class Laser(Autofocus):
-    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="laser"):
+    def __init__(self, camera: Camera, stage: Stage, lamp: Lamp, image_dir="laser"):
         super().__init__(camera, stage, lamp, image_dir)
 
     def focus(self, start: int, end: int, step: int, callback=None) -> float:
@@ -172,7 +172,7 @@ class Laser(Autofocus):
         self.focused_image = best_focus_image_path
         print(self.focused_image)
         self.capture_scores = normalized_scores
-
+        print(self.focus_distance)
         return self.focus_distance
 
     def detect_spot_and_measure(self, image):
@@ -193,7 +193,7 @@ class Laser(Autofocus):
 
 
 class RamanSpectra(Autofocus):
-    def __init__(self, camera: ICamera, stage: Stage, lamp: Lamp, image_dir="spectra"):
+    def __init__(self, camera: Camera, stage: Stage, lamp: Lamp, image_dir="spectra"):
         super().__init__(camera, stage, lamp, image_dir)
 
     def focus(self, start: int, end: int, step: int, callback=None) -> float:

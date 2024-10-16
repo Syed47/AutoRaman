@@ -5,7 +5,7 @@ from core.controller import controller
 import matplotlib.pyplot as plt
 import os
 
-class ICamera(ABC):
+class Camera(ABC):
     def __init__(self, camera:str):
         self.controller = controller
         self.camera = camera
@@ -33,7 +33,7 @@ class ICamera(ABC):
         pass
 
 
-class Camera(ICamera):
+class CCDCamera(Camera):
     def __init__(self, camera:str='AmScope', exposure:int=15):
         super().__init__(camera)
         self.set_exposure(exposure)
@@ -59,7 +59,7 @@ class Camera(ICamera):
         return self.snapped_image
 
 
-class SpectralCamera(ICamera):
+class SpectralCamera(Camera):
     def __init__(self, camera:str='Andor', exposure:int=1000):
         super().__init__(camera)
         self.set_exposure(exposure)

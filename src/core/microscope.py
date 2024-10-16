@@ -1,4 +1,4 @@
-from core.camera import ICamera, Camera, SpectralCamera
+from core.camera import Camera, CCDCamera, SpectralCamera
 from core.stage import Stage
 from core.lamp import Lamp
 from core.autofocus import Autofocus
@@ -15,11 +15,16 @@ class Microscope:
 
     def __init__(self):
         if not hasattr(self, '_initialized'):
-            self.camera: ICamera = Camera()
+            self.camera: Camera = CCDCamera()
             self.stage: Stage = Stage()
             self.lamp: Lamp = Lamp()
             self.focus_strategy = None
             self._initialized = True 
+
+    def set_camera(self, camera: Camera):
+        if isinstance(camera, Camera):
+            self.camera = camera
+            print("camera chaned to", self.camera.camera)
 
     def snap_image(self):
         img = self.camera.capture()
@@ -32,7 +37,7 @@ class Microscope:
     def auto_focus(self, strategy: Autofocus, start: int, end: int, step: int = 1, callback=None) -> float:
         self.focus_strategy = strategy(self.camera, self.stage, self.lamp)
         self.zfocus = self.focus_strategy.focus(start, end, step, callback)
-        # self.stage.move(z=self.zfocus)
+        self.stage.move(z=self.zfocus)
         return self.zfocus
 
 

@@ -5,6 +5,7 @@ from PyQt5.QtCore import Qt, QTimer, QSize
 from components.tab import Tab
 from core.microscope import microscope
 from core.controller import controller
+from core.camera import Camera, CCDCamera, SpectralCamera
 from components.state import state_manager
 
 import cv2
@@ -344,12 +345,14 @@ class SettingsTab(Tab):
         andor = self.radio_andor.isChecked()
 
         if amscope:
-            microscope.camera.set_camera("AmScope")
+            print("amscope checked", amscope)
+            microscope.set_camera(CCDCamera(exposure=state_manager.get('EXPOSURE-AMSCOPE'))) 
             self.slider_exposure_andor.setEnabled(False)
             self.slider_exposure_amscope.setEnabled(True)
 
         if andor:
-            microscope.camera.set_camera('Andor')
+            print("andor checked", andor)
+            microscope.set_camera(SpectralCamera(exposure=state_manager.get('EXPOSURE-ANDOR')))
             self.slider_exposure_andor.setEnabled(True)
             self.slider_exposure_amscope.setEnabled(False)
 

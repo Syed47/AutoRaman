@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QFrame, QLabel, QLineEdit, QPushButton, QCheckBox, QSlider, QMessageBox
-from PyQt5.QtGui import QPixmap, QCursor, QPainter, QColor, QImage
-from PyQt5.QtCore import Qt, QPoint, QTimer
+from PyQt5.QtGui import QPixmap, QCursor, QPainter, QColor
+
+from PyQt5.QtCore import Qt, QTimer
 
 
 import os
@@ -9,7 +10,7 @@ from components.messagebox import MessageBox
 from components.state import state_manager
 from core.controller import controller
 from core.microscope import microscope
-from core.camera import Camera, SpectralCamera
+from core.camera import CCDCamera, SpectralCamera
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 from core.base_cell_identifier import CellPose
 
@@ -26,11 +27,11 @@ from scipy.ndimage import center_of_mass
 class InteractiveImage(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.points = [] 
+        self.points = []
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            pos = event.pos() 
+            pos = event.pos()
             self.points.append(pos)
             self.update() 
 
@@ -38,11 +39,13 @@ class InteractiveImage(QLabel):
         super().paintEvent(event)
 
         painter = QPainter(self)
-        painter.setPen(QColor(255, 0, 0)) 
 
-        for point in self.points:
-            painter.drawEllipse(point, 2, 2) 
-
+        for index, point in enumerate(self.points, start=1):
+            painter.setPen(QColor(255, 0, 0)) 
+            painter.drawEllipse(point, 2, 2)
+            painter.setPen(QColor(0, 255, 0)) 
+            painter.drawText(point, str(index))
+    
 
 class CellsTab(Tab):
     def __init__(self, logger=None):
@@ -262,7 +265,8 @@ class CellsTab(Tab):
             sleep(0.5)
 
     def record_spectra(self):
-        
+        state_manager.set('LAMP', False)
+        sleep(2)
         if state_manager.get('LASER-XYZ') is None:
             MessageBox(text="Please run the laser focus routine before continuing.",
                        icon=QMessageBox.Warning)
@@ -270,7 +274,7 @@ class CellsTab(Tab):
         
         width, height = microscope.camera.width, microscope.camera.height
         print('Camera XY:', width, height)
-        microscope.camera = SpectralCamera(exposure=state_manager.get('EXPOSURE-ANDOR'))
+        microscope.set_camera(SpectralCamera(exposure=state_manager.get('EXPOSURE-ANDOR')))
         sleep(1)
         Sx, Sy = microscope.stage.x, microscope.stage.y
         X, Y, Z = state_manager.get('LASER-XYZ')
@@ -288,13 +292,16 @@ class CellsTab(Tab):
             print('dxdy:', dx, dy)
             print('sxsy:', sx, sy)
             microscope.move_stage(sx, sy)
-            sleep(2)
+            sleep(1)
             X, Y = x, y
             image = microscope.camera.capture()
+            print("captured 1")
+            image = microscope.camera.capture()
+            print("captured 2")
             plt.plot(x_values, image[0], label='Original Line')
             plt.pause(0.5)
         plt.show()
-        microscope.camera = Camera(exposure=state_manager.get('EXPOSURE-AMSCOPE'))
+        microscope.camera = CCDCamera(exposure=state_manager.get('EXPOSURE-AMSCOPE'))
         # microscope.stage.move(Sx, Sy)
         sleep(1)
         print(self.points)
