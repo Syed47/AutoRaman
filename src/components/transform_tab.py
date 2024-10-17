@@ -113,7 +113,7 @@ class TransformTab(Tab):
 
         self.image1 = QPixmap("components/microscope.png")
         self.img1 = QLabel(right_panel)
-        self.img1.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        # self.img1.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img1.setPixmap(self.image1)
         self.img1.setFixedSize(210, 260)
         self.img1.setGeometry(0, 0, 210, 260)
@@ -121,7 +121,7 @@ class TransformTab(Tab):
 
         self.image2 = QPixmap("components/microscope.png")
         self.img2 = QLabel(right_panel)
-        self.img2.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        # self.img2.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img2.setPixmap(self.image2)
         self.img2.setFixedSize(210, 260)
         self.img2.setGeometry(210, 0, 200, 260)
@@ -129,7 +129,7 @@ class TransformTab(Tab):
 
         self.overlap_image = QPixmap("components/microscope.png")
         self.img_overlap = QLabel(right_panel)
-        self.img_overlap.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        # self.img_overlap.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_overlap.setPixmap(self.overlap_image)
         self.img_overlap.setFixedSize(420, 280)
         self.img_overlap.setGeometry(0, 260, 400, 280)

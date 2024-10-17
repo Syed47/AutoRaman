@@ -20,6 +20,8 @@ import cv2
 from cellpose import models
 from cellpose.io import imread
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import tifffile as tiff
 from time import sleep
 from scipy.ndimage import center_of_mass
 
@@ -37,11 +39,10 @@ class InteractiveImage(QLabel):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-
         painter = QPainter(self)
-
         for index, point in enumerate(self.points, start=1):
-            painter.setPen(QColor(255, 0, 0)) 
+            painter.setPen(QColor(255, 0, 0))
+            painter.setBrush(QColor(255, 0, 0))
             painter.drawEllipse(point, 2, 2)
             painter.setPen(QColor(0, 255, 0)) 
             painter.drawText(point, str(index))
@@ -129,7 +130,7 @@ class CellsTab(Tab):
 
         self.plot_bf = QPixmap("components/microscope.png")
         self.img_bf = InteractiveImage(self.right_panel)
-        self.img_bf.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        self.img_bf.setStyleSheet("QLabel { border: none; border-radius: 0px; };")
         self.img_bf.setPixmap(self.plot_bf)
         self.img_bf.setFixedSize(380, 260)
         self.img_bf.setGeometry(20, 5, 380, 260)
@@ -137,7 +138,7 @@ class CellsTab(Tab):
 
         self.plot_seg = QPixmap("components/bar-chart.png")
         self.img_seg = QLabel(self.right_panel)
-        self.img_seg.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        # self.img_seg.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_seg.setPixmap(self.plot_seg)
         self.img_seg.setFixedSize(380, 260)
         self.img_seg.setGeometry(20, 275, 380, 260)
@@ -230,7 +231,7 @@ class CellsTab(Tab):
         print("LIVE VIEW STARTED")
         microscope.camera.set_camera('Andor')
         microscope.camera.set_exposure(1000)
-        microscope.camera.set_option("ReadMode", "FVB");
+        microscope.camera.set_option("ReadMode", "FVB")
         print(microscope.camera.get_property('ReadMode'))
         print(microscope.camera.camera)
         self.logger.log("live preview started")
@@ -266,45 +267,71 @@ class CellsTab(Tab):
 
     def record_spectra(self):
         state_manager.set('LAMP', False)
+        state_manager.set('LASER', 100)
         sleep(2)
         if state_manager.get('LASER-XYZ') is None:
             MessageBox(text="Please run the laser focus routine before continuing.",
                        icon=QMessageBox.Warning)
             return
-        
+        plt.clf()
         width, height = microscope.camera.width, microscope.camera.height
         print('Camera XY:', width, height)
         microscope.set_camera(SpectralCamera(exposure=state_manager.get('EXPOSURE-ANDOR')))
-        sleep(1)
+        sleep(2)
         Sx, Sy = microscope.stage.x, microscope.stage.y
         X, Y, Z = state_manager.get('LASER-XYZ')
         print(X,Y,Z)
-        self.points = [(p.x(), p.y()) for p in self.img_bf.points]
+        self.points = [(i+1, p.x(), p.y()) for i, p in enumerate(self.img_bf.points)]
         transform_matrix = state_manager.get('TRANSFORM-MATRIX')
         x_values = np.linspace(0, 1024, 1024)
-
+        # scaled_points = []
         for p in self.points:
-            print("x0x1:", p[0], p[1])
-            x, y = p[0] * (width / 380) , p[1] * (height / 260)
+            x, y = p[1] * (width / 380) , p[2] * (height / 260)
             dx, dy = X - x, y - Y
             sx, sy = transform_matrix(dx, dy)
-            print('xy:', x, y)
-            print('dxdy:', dx, dy)
-            print('sxsy:', sx, sy)
             microscope.move_stage(sx, sy)
-            sleep(1)
+            sleep(2)
             X, Y = x, y
             image = microscope.camera.capture()
-            print("captured 1")
-            image = microscope.camera.capture()
-            print("captured 2")
-            plt.plot(x_values, image[0], label='Original Line')
-            plt.pause(0.5)
-        plt.show()
-        microscope.camera = CCDCamera(exposure=state_manager.get('EXPOSURE-AMSCOPE'))
+            plt.plot(x_values, image[0], label=str(p[0]))
+            # debuging
+            # microscope.set_camera(CCDCamera(exposure=state_manager.get('EXPOSURE-AMSCOPE')))
+            # # state_manager.set('LAMP', True)
+            # sleep(1)
+            # image = microscope.snap_image()
+            # if len(image.shape) > 2:
+            #     image = np.mean(image, axis=-1) 
+            # ly, lx = np.unravel_index(np.argmax(image), image.shape)
+            # scaled_points.append((x, y, lx, ly))
+            # microscope.set_camera(SpectralCamera(exposure=state_manager.get('EXPOSURE-ANDOR')))
+            # state_manager.set('LAMP', False)
+            # # state_manager.set('LASER', state_manager.get('LASER-INTENSITY'))
+            # sleep(1)
+
+        plt.legend()
+        plt.savefig("Autofocus/plots/spectra.png", bbox_inches='tight', pad_inches=0)
+        plt.close()
+
+        self.plot_seg = QPixmap("Autofocus/plots/spectra.png")
+        self.img_seg.setPixmap(self.plot_seg)
+
+        state_manager.set('LASER', 0)
+
+        microscope.set_camera(CCDCamera(exposure=state_manager.get('EXPOSURE-AMSCOPE')))
         # microscope.stage.move(Sx, Sy)
         sleep(1)
-        print(self.points)
+
+        # x, y, lx, ly = zip(*scaled_points)
+        # image = tiff.imread(state_manager.get('SNAPPED-IMAGE'))
+        # plt.imshow(image)
+        # plt.plot(x, y, marker='o', color='g', linestyle='--', linewidth=1, markersize=2)
+        # plt.plot(lx, ly, marker='+', color='r', linestyle='None', markersize=2)
+        # plt.axis('off') 
+        # plt.show()
+        # plt.close()
+
+
+
 
     def identify(self):
 

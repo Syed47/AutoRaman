@@ -136,7 +136,7 @@ class LaserTab(Tab):
 
         self.plot_bf = QPixmap("components/microscope.png")
         self.img_bf = QLabel(right_panel)
-        self.img_bf.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        # self.img_bf.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_bf.setPixmap(self.plot_bf)
         self.img_bf.setFixedSize(420, 280)
         self.img_bf.setGeometry(10, 0, 420, 280)
@@ -144,7 +144,7 @@ class LaserTab(Tab):
 
         self.plot_intensity_score = QPixmap("components/bar-chart.png")
         self.img_var = QLabel(right_panel)
-        self.img_var.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        # self.img_var.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.img_var.setPixmap(self.plot_intensity_score)
         self.img_var.setFixedSize(420, 280)
         self.img_var.setGeometry(10, 280, 420, 280)

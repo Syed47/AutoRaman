@@ -215,7 +215,7 @@ class SettingsTab(Tab):
 
         self.image = QPixmap("components/microscope.png")
         self.live_image = QLabel(right_panel)
-        self.live_image.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
+        # self.live_image.setStyleSheet("QLabel { border: 1px solid #444444; border-radius: 0px; };")
         self.live_image.setPixmap(self.image)
         self.live_image.setFixedSize(432, 301)
         self.live_image.setGeometry(0, 0, 432, 301)
@@ -513,7 +513,8 @@ class SettingsTab(Tab):
                 plt.plot(x_moving_avg, moving_average, color='r', linestyle='solid', label='Moving Average')
 
                 plt.savefig("Autofocus/plots/spectra.png", bbox_inches='tight', pad_inches=0)
-
+                plt.close()
+                
                 self.image = QPixmap("Autofocus/plots/spectra.png")
                 self.live_image.setPixmap(self.image)
 
