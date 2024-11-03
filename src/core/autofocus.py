@@ -192,9 +192,39 @@ class Laser(Autofocus):
         return spot_area, spot_intensity
 
 
+from scipy.signal import find_peaks
+
+
 class RamanSpectra(Autofocus):
     def __init__(self, camera: Camera, stage: Stage, lamp: Lamp, image_dir="spectra"):
         super().__init__(camera, stage, lamp, image_dir)
 
     def focus(self, start: int, end: int, step: int, callback=None) -> float:
         pass
+    
+    @staticmethod
+    def find_best_spectrum(wavelengths, spectra, min_wavelength=500, max_wavelength=700):
+        best_spectrum = None
+        highest_peak_sum = 0
+        best_spectrum_index = -1
+
+        for i, intensities in enumerate(spectra):
+            mask = (wavelengths >= min_wavelength) & (wavelengths <= max_wavelength)
+            focused_wavelengths = wavelengths[mask]
+            focused_intensities = intensities[mask]
+            
+            peak_indices, _ = find_peaks(focused_intensities)
+            peak_intensities = focused_intensities[peak_indices]
+            
+            if len(peak_intensities) < 2:
+                continue
+            
+            sorted_peak_intensities = np.sort(peak_intensities)[-2:]
+            peak_sum = np.sum(sorted_peak_intensities)
+            
+            if peak_sum > highest_peak_sum:
+                highest_peak_sum = peak_sum
+                best_spectrum = intensities
+                best_spectrum_index = i
+
+        return best_spectrum, best_spectrum_index

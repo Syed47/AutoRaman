@@ -10,6 +10,7 @@ from components.messagebox import MessageBox
 from components.state import state_manager
 from core.controller import controller
 from core.microscope import microscope
+from core.autofocus import RamanSpectra
 from core.camera import CCDCamera, SpectralCamera
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 from core.base_cell_identifier import CellPose
@@ -219,52 +220,6 @@ class CellsTab(Tab):
         self.identify()
         QApplication.restoreOverrideCursor()
 
-    def handle_spectra(self):
-        if self.live:
-            self.stop_live_view()
-            self.live = False
-        else:
-            self.start_live_view()
-            self.live = True
-
-    def start_live_view(self):
-        print("LIVE VIEW STARTED")
-        microscope.camera.set_camera('Andor')
-        microscope.camera.set_exposure(1000)
-        microscope.camera.set_option("ReadMode", "FVB")
-        print(microscope.camera.get_property('ReadMode'))
-        print(microscope.camera.camera)
-        self.logger.log("live preview started")
-        controller.start_continuous_sequence_acquisition(0)
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.read_image_buffer)
-        self.timer.start(500)
-
-    def stop_live_view(self):
-        controller.stop_sequence_acquisition()
-        self.timer.stop()
-        # self.plot_seg = QPixmap("components/microscope.png")
-        # self.img_seg.setPixmap(self.last_tagged_image)
-        self.logger.log("live preview stopped")
-
-    def read_image_buffer(self):
-        print('READING LIVE IMAGE')
-        try:
-            remaining_images = controller.get_remaining_image_count()
-            if remaining_images > 0:
-                tagged_image = controller.get_last_tagged_image()
-                image = tagged_image.pix.reshape(tagged_image.tags['Height'], tagged_image.tags['Width'])
-
-                self.last_tagged_image = image
-                print("last tagged imaged updated")
-            else:
-                print("Circular buffer is empty, waiting for images...")
-                sleep(0.1)
-
-        except Exception as e:
-            print(f"Error retrieving image: {e}")
-            sleep(0.5)
-
     def record_spectra(self):
         state_manager.set('LAMP', False)
         state_manager.set('LASER', 100)
@@ -285,6 +240,7 @@ class CellsTab(Tab):
         transform_matrix = state_manager.get('TRANSFORM-MATRIX')
         x_values = np.linspace(0, 1024, 1024)
         # scaled_points = []
+
         for p in self.points:
             x, y = p[1] * (width / 380) , p[2] * (height / 260)
             dx, dy = X - x, y - Y
@@ -292,8 +248,15 @@ class CellsTab(Tab):
             microscope.move_stage(sx, sy)
             sleep(2)
             X, Y = x, y
-            image = microscope.camera.capture()
-            plt.plot(x_values, image[0], label=str(p[0]))
+            images = []
+            Z = microscope.stage.z
+            for z in range(-2, 3, 1):
+                image = microscope.camera.capture()
+                images.append(image)
+                microscope.stage.move(z=Z+z)
+            microscope.stage.move(z=Z)
+            best_spectra, index = RamanSpectra.find_best_spectrum(x_values, images, 500, 700)
+            plt.plot(x_values, best_spectra[0], label=f"{p[0]}-{index}")
             # debuging
             # microscope.set_camera(CCDCamera(exposure=state_manager.get('EXPOSURE-AMSCOPE')))
             # # state_manager.set('LAMP', True)
@@ -308,6 +271,7 @@ class CellsTab(Tab):
             # # state_manager.set('LASER', state_manager.get('LASER-INTENSITY'))
             # sleep(1)
 
+
         plt.legend()
         plt.savefig("Autofocus/plots/spectra.png", bbox_inches='tight', pad_inches=0)
         plt.close()
@@ -321,6 +285,7 @@ class CellsTab(Tab):
         # microscope.stage.move(Sx, Sy)
         sleep(1)
 
+
         # x, y, lx, ly = zip(*scaled_points)
         # image = tiff.imread(state_manager.get('SNAPPED-IMAGE'))
         # plt.imshow(image)
@@ -329,8 +294,6 @@ class CellsTab(Tab):
         # plt.axis('off') 
         # plt.show()
         # plt.close()
-
-
 
 
     def identify(self):
@@ -361,6 +324,7 @@ class CellsTab(Tab):
             model.append('nuclei')
 
         cyto, nuclei = self.cellpose.identify(img, self.diameter, self.threshold, model)
+        self.points = nuclei
 
         if cyto is not None:
             plt.imshow(cyto, cmap='jet', alpha=0.5)
