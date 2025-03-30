@@ -1,0 +1,12 @@
+pycromanager
+numpy
+matplotlib
+pandas
+scipy
+sklearn
+opencv-python
+cellpose
+tifffile
+torch
+PyQt5
+
